@@ -172,23 +172,55 @@ function initSchema() {
         now
     );
 
-    // Seed initial Admin User if no admin exists
-    const adminCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get().count;
-    if (adminCount === 0) {
-        const adminId = 'usr_admin_master';
-        const salt = bcrypt.genSaltSync(10);
-        const passwordHash = bcrypt.hashSync('AdminPassword123!', salt);
-        db.prepare(`
-            INSERT OR IGNORE INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
-            VALUES (?, 'aadeshnavade7@gmail.com', ?, 'Aadesh Navade', 'AAI DIM', 'admin', 1, ?, ?)
-        `).run(adminId, passwordHash, now, now);
+    // ALWAYS guarantee master admin aadeshnavade7@gmail.com exists with AdminPassword123!
+    const masterEmail = 'aadeshnavade7@gmail.com';
+    const salt = bcrypt.genSaltSync(10);
+    const passwordHash = bcrypt.hashSync('AdminPassword123!', salt);
+    const masterUser = db.prepare('SELECT id, email FROM users WHERE email = ?').get(masterEmail);
 
-        const expiryDate = new Date();
-        expiryDate.setFullYear(expiryDate.getFullYear() + 10);
+    let masterUserId;
+    if (!masterUser) {
+        masterUserId = 'usr_admin_master';
         db.prepare(`
-            INSERT OR IGNORE INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
+            INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
+            VALUES (?, ?, ?, 'Aadesh Navade', 'AAI DIM', 'admin', 1, ?, ?)
+        `).run(masterUserId, masterEmail, passwordHash, now, now);
+    } else {
+        masterUserId = masterUser.id;
+        db.prepare(`
+            UPDATE users SET password_hash = ?, role = 'admin', is_approved = 1, updated_at = ?
+            WHERE email = ?
+        `).run(passwordHash, now, masterEmail);
+    }
+
+    // Ensure 10-year VIP subscription for master admin
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 10);
+    const masterSub = db.prepare('SELECT id FROM subscriptions WHERE user_id = ?').get(masterUserId);
+    if (!masterSub) {
+        db.prepare(`
+            INSERT INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
             VALUES (?, ?, 'ACTIVE', 'half_yearly', ?, ?, 365, ?, ?)
-        `).run('sub_admin_master', adminId, now, expiryDate.toISOString(), now, now);
+        `).run('sub_admin_master', masterUserId, now, expiryDate.toISOString(), now, now);
+    } else {
+        db.prepare(`
+            UPDATE subscriptions SET status = 'ACTIVE', expiry_date = ?, reauth_interval_days = 365, updated_at = ?
+            WHERE user_id = ?
+        `).run(expiryDate.toISOString(), now, masterUserId);
+    }
+
+    // Also guarantee backup admin account admin@aaidim.com has AdminPassword123!
+    const backupAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@aaidim.com');
+    if (backupAdmin) {
+        db.prepare(`
+            UPDATE users SET password_hash = ?, role = 'admin', is_approved = 1, updated_at = ?
+            WHERE email = 'admin@aaidim.com'
+        `).run(passwordHash, now);
+    } else {
+        db.prepare(`
+            INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
+            VALUES ('usr_admin_backup', 'admin@aaidim.com', ?, 'System Administrator', 'AAI DIM', 'admin', 1, ?, ?)
+        `).run(passwordHash, now, now);
     }
 
     // Seed initial release if v1.0.0 exists on disk
