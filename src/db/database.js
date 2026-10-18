@@ -223,6 +223,58 @@ function initSchema() {
         `).run(passwordHash, now, now);
     }
 
+    // Seed persistent testing and developer customer accounts
+    const seedAccounts = [
+        {
+            email: 'aadeshchess40@gmail.com',
+            name: 'Aadesh Navade',
+            company: 'AAI DIM',
+            role: 'customer',
+            isApproved: 1,
+            password: 'Password123!',
+            planCode: 'pro_monthly'
+        },
+        {
+            email: 'testuser@architect.com',
+            name: 'Test Architect',
+            company: 'AAI BIM Studio',
+            role: 'customer',
+            isApproved: 1,
+            password: 'Password123!',
+            planCode: 'pro_monthly'
+        }
+    ];
+
+    for (const acc of seedAccounts) {
+        const u = db.prepare('SELECT id FROM users WHERE email = ?').get(acc.email);
+        const passHash = bcrypt.hashSync(acc.password, 10);
+        let uid;
+        if (!u) {
+            uid = 'usr_' + Math.random().toString(36).substring(2, 9);
+            db.prepare(`
+                INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(uid, acc.email, passHash, acc.name, acc.company, acc.role, acc.isApproved, now, now);
+        } else {
+            uid = u.id;
+            db.prepare('UPDATE users SET password_hash = ?, is_approved = 1 WHERE email = ?').run(passHash, acc.email);
+        }
+
+        const sub = db.prepare('SELECT id FROM subscriptions WHERE user_id = ?').get(uid);
+        const subExpiry = new Date();
+        subExpiry.setFullYear(subExpiry.getFullYear() + 2);
+        if (!sub) {
+            db.prepare(`
+                INSERT INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
+                VALUES (?, ?, 'ACTIVE', ?, ?, ?, 7, ?, ?)
+            `).run('sub_' + Math.random().toString(36).substring(2, 9), uid, acc.planCode, now, subExpiry.toISOString(), now, now);
+        } else {
+            db.prepare(`
+                UPDATE subscriptions SET status = 'ACTIVE', expiry_date = ?, reauth_interval_days = 7 WHERE user_id = ?
+            `).run(subExpiry.toISOString(), uid);
+        }
+    }
+
     // Seed initial release if v1.0.0 exists on disk
     const releasesDir = process.env.RELEASES_DIR || path.join(__dirname, '..', '..', 'Releases');
     const initialZip = path.join(releasesDir, 'AAI_DIM_v1.0.0_Setup.zip');
