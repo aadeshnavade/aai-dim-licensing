@@ -137,6 +137,31 @@ router.post('/customers/create', (req, res) => {
     });
 });
 
+// Reset/Set Customer Password by Admin
+router.post('/customers/:id/reset-password', (req, res) => {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long.' });
+    }
+
+    const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(id);
+    if (!user) {
+        return res.status(404).json({ success: false, error: 'Customer not found.' });
+    }
+
+    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    const nowIso = new Date().toISOString();
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(passwordHash, nowIso, id);
+
+    logAudit(req.user.id, req.user.email, 'CUSTOMER_PASSWORD_RESET', user.id, user.email, {});
+
+    res.json({
+        success: true,
+        message: `Password updated successfully for ${user.email}.`
+    });
+});
+
 // Approve or Unapprove Customer
 router.post('/customers/:id/approve', (req, res) => {
     const { id } = req.params;

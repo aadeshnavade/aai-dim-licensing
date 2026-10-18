@@ -609,6 +609,9 @@ async function loadAdminCustomers() {
                         <button onclick="toggleApproveCustomer('${c.id}', ${!c.isApproved})" class="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-slate-100 font-medium text-slate-700">
                             ${c.isApproved ? 'Unapprove' : 'Approve'}
                         </button>
+                        <button onclick="openResetPasswordModal('${c.id}', '${c.email}')" class="px-2.5 py-1 text-xs border border-amber-300 text-amber-700 hover:bg-amber-50 rounded font-medium">
+                            Set Password
+                        </button>
                         <button onclick="openManageLicenseModal('${c.id}', '${c.email}', ${sub.reauthIntervalDays || 7})" class="px-2.5 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded font-medium shadow-sm">
                             Manage License
                         </button>
@@ -649,6 +652,7 @@ async function executeAddCustomer(e) {
     const email = document.getElementById('newCustEmail').value;
     const fullName = document.getElementById('newCustName').value;
     const company = document.getElementById('newCustCompany').value;
+    const initialPassword = document.getElementById('newCustPassword') ? document.getElementById('newCustPassword').value : 'Password123!';
     const autoApprove = document.getElementById('newCustApprove').checked;
 
     try {
@@ -658,7 +662,7 @@ async function executeAddCustomer(e) {
                 'Authorization': `Bearer ${state.adminToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, fullName, company, autoApprove })
+            body: JSON.stringify({ email, fullName, company, initialPassword, autoApprove })
         });
         const data = await res.json();
         if (!data.success) {
@@ -667,8 +671,42 @@ async function executeAddCustomer(e) {
         }
 
         closeModal('modalAddCustomer');
-        showBanner(`Customer ${email} created! Temp password: ${data.customer.temporaryPassword}`);
+        showBanner(`Customer ${email} created with password: ${initialPassword}`);
         loadAdminCustomers();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+function openResetPasswordModal(userId, email) {
+    document.getElementById('resetPassUserId').value = userId;
+    document.getElementById('resetPassEmail').textContent = email;
+    document.getElementById('resetPassValue').value = 'Password123!';
+    document.getElementById('modalResetPassword').classList.remove('hidden');
+}
+
+async function executeResetCustomerPassword(e) {
+    e.preventDefault();
+    const userId = document.getElementById('resetPassUserId').value;
+    const newPassword = document.getElementById('resetPassValue').value;
+    const email = document.getElementById('resetPassEmail').textContent;
+
+    try {
+        const res = await fetch(`/api/v1/admin/customers/${userId}/reset-password`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${state.adminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ newPassword })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert(data.error);
+            return;
+        }
+        closeModal('modalResetPassword');
+        showBanner(`Password updated successfully for ${email}`);
     } catch (err) {
         alert(err.message);
     }
