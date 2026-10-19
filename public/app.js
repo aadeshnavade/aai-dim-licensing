@@ -364,7 +364,7 @@ async function loadCustomerReleases() {
                         ${r.isMandatory ? `<span class="text-xs bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold">Recommended</span>` : ''}
                     </div>
                     <p class="text-xs text-slate-600">${r.releaseNotes || 'Production-ready standalone installer package.'}</p>
-                    <div class="text-[11px] text-slate-400">File: ${r.fileName} • ${r.fileSizeFormatted} • Released: ${new Date(r.releaseDate).toLocaleDateString()}</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1">📦 Setup Package: ${r.fileName} (${r.fileSizeFormatted}) • 🕒 Deployed: ${new Date(r.releaseDate).toLocaleString()}</div>
                 </div>
 
                 <a href="${r.downloadUrl}?token=${encodeURIComponent(state.customerToken)}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-xs shadow transition flex items-center shrink-0">
@@ -919,7 +919,7 @@ async function loadAdminReleases() {
                         </span>
                     </div>
                     <div class="text-xs text-slate-600">${r.release_notes || 'No notes provided.'}</div>
-                    <div class="text-[11px] text-slate-400">File: ${r.file_name} • ${(r.file_size_bytes / 1024).toFixed(1)} KB • Released: ${new Date(r.created_at).toLocaleDateString()}</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1">📦 Package: ${r.file_name} • ${(r.file_size_bytes / 1024).toFixed(1)} KB • 🕒 Deployed: ${new Date(r.created_at || r.release_date).toLocaleString()}</div>
                 </div>
 
                 <div class="flex items-center space-x-2">

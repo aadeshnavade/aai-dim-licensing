@@ -275,26 +275,51 @@ function initSchema() {
         }
     }
 
-    // Seed initial release if v1.0.0 exists on disk
-    const releasesDir = process.env.RELEASES_DIR || path.join(__dirname, '..', '..', 'Releases');
-    const initialZip = path.join(releasesDir, 'AAI_DIM_v1.0.0_Setup.zip');
-    if (fs.existsSync(initialZip)) {
-        const stats = fs.statSync(initialZip);
-        const insertRelease = db.prepare(`
-            INSERT OR IGNORE INTO releases
+    // Seed latest release (v1.1.0) and discard older versions
+    const possibleDirs = [
+        path.join(process.cwd(), 'releases'),
+        path.join(__dirname, '..', '..', 'releases'),
+        path.join(__dirname, '..', '..', '..', 'Releases')
+    ];
+
+    let foundZip = null;
+    let foundFileName = 'AAI_DIM_v1.1.0_Setup.zip';
+    for (const d of possibleDirs) {
+        const testPath = path.join(d, foundFileName);
+        if (fs.existsSync(testPath)) {
+            foundZip = testPath;
+            break;
+        }
+    }
+
+    if (foundZip) {
+        const stats = fs.statSync(foundZip);
+        // Deactivate all older versions so only the latest version is available
+        db.prepare('UPDATE releases SET is_active = 0 WHERE version_number != ?').run('1.1.0');
+
+        const upsertRelease = db.prepare(`
+            INSERT INTO releases
             (id, version_number, release_date, min_revit_version, max_revit_version, file_path, file_name, file_size_bytes, release_notes, is_active, is_mandatory, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)
+            ON CONFLICT(version_number) DO UPDATE SET
+                file_path = excluded.file_path,
+                file_name = excluded.file_name,
+                file_size_bytes = excluded.file_size_bytes,
+                release_notes = excluded.release_notes,
+                is_active = 1,
+                release_date = excluded.release_date
         `);
-        insertRelease.run(
-            'rel_v1.0.0',
-            '1.0.0',
+
+        upsertRelease.run(
+            'rel_v1.1.0',
+            '1.1.0',
             now,
             '2024',
             '2027+',
-            initialZip,
-            'AAI_DIM_v1.0.0_Setup.zip',
+            foundZip,
+            foundFileName,
             stats.size,
-            'Initial public release with autonomous exterior, interior, aligned (angled), curved, and angular dimensioning, plus Autodesk AI-style Conversational Assistant.',
+            'v1.1.0: Added ArchiCAD-style 4-tier progressive hierarchy, customizable 1200mm initial offset and 700mm chain spacing, text collision avoidance with leader staggering, angled wall linear fallback, and Google Gemini Vision AI drawing analysis.',
             now
         );
     }

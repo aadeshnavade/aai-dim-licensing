@@ -131,12 +131,29 @@ router.get('/download/:version', (req, res) => {
         }
     }
 
-    // File check
-    if (!fs.existsSync(rel.file_path)) {
+    // Robust multi-path resolution across local dev (Windows) and production containers (Linux/Docker/Render)
+    const candidatePaths = [
+        path.resolve(process.cwd(), 'releases', rel.file_name),
+        path.resolve(__dirname, '../../releases', rel.file_name),
+        path.resolve(process.cwd(), 'public', 'downloads', rel.file_name),
+        rel.file_path,
+        path.resolve(__dirname, '../../../Releases', rel.file_name)
+    ];
+
+    let resolvedPath = null;
+    for (const p of candidatePaths) {
+        if (p && fs.existsSync(p)) {
+            resolvedPath = p;
+            break;
+        }
+    }
+
+    if (!resolvedPath) {
+        console.error(`[RELEASE DOWNLOAD ERROR] File not found for ${rel.version_number} (${rel.file_name}). Checked paths:`, candidatePaths);
         return res.status(404).send('Release package file is missing on server storage.');
     }
 
-    res.download(rel.file_path, rel.file_name);
+    res.download(resolvedPath, rel.file_name);
 });
 
 module.exports = router;
