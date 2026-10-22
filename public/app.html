@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AadiSketch Pro — Pure Google SketchUp 3D Modeler</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/aadisketch.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    /* Full-screen web shell adaptations */
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .back-home-btn {
+      background: #0284c7;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 6px;
+      transition: background 0.15s;
+    }
+    .back-home-btn:hover {
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body class="sketchup-desktop">
+  <!-- 1. Authentic SketchUp Menu Bar -->
+  <nav class="su-menu-bar">
+    <a href="/" class="back-home-btn" title="Return to Portal Home"><i class="fa-solid fa-arrow-left"></i> Home</a>
+
+    <div class="su-menu-item">
+      <span>File</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuNew">New <span class="shortcut">Ctrl+N</span></div>
+        <div class="su-dropdown-item" id="menuReload">Reload Sample House <span class="shortcut">Ctrl+R</span></div>
+        <div class="su-dropdown-item" id="menuSave">Save Project (.json) <span class="shortcut">Ctrl+S</span></div>
+        <div class="su-dropdown-separator"></div>
+        <div class="su-dropdown-item" id="menuExportOBJ">Export 3D Model (OBJ)...</div>
+        <div class="su-dropdown-item" id="menuScreenshot">Take Screenshot (PNG)...</div>
+        <div class="su-dropdown-separator"></div>
+        <div class="su-dropdown-item" id="menuExit">Exit to Home</div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>Edit</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuUndo">Undo <span class="shortcut">Ctrl+Z</span></div>
+        <div class="su-dropdown-item" id="menuRedo">Redo <span class="shortcut">Ctrl+Y</span></div>
+        <div class="su-dropdown-separator"></div>
+        <div class="su-dropdown-item" id="menuClear">Clear Canvas <span class="shortcut">Del</span></div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>View</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuToggleCuts">Section Cuts On/Off</div>
+        <div class="su-dropdown-item" id="menuTogglePlanes">Section Planes On/Off</div>
+        <div class="su-dropdown-separator"></div>
+        <div class="su-dropdown-item" id="menuStyleClassic">Style: SketchUp Default</div>
+        <div class="su-dropdown-item" id="menuStyleShaded">Style: Shaded Textures</div>
+        <div class="su-dropdown-item" id="menuStyleMono">Style: Monochrome</div>
+        <div class="su-dropdown-item" id="menuStyleXray">Style: X-Ray Translucent</div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>Camera</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuCamOrbit">Orbit <span class="shortcut">O</span></div>
+        <div class="su-dropdown-item" id="menuCamPan">Pan <span class="shortcut">H</span></div>
+        <div class="su-dropdown-item" id="menuCamZoom">Zoom <span class="shortcut">Z</span></div>
+        <div class="su-dropdown-item" id="menuCamZoomExtents">Zoom Extents <span class="shortcut">Shift+Z</span></div>
+        <div class="su-dropdown-separator"></div>
+        <div class="su-dropdown-item" id="menuViewIso">Standard View: Iso 3D</div>
+        <div class="su-dropdown-item" id="menuViewTop">Standard View: Top (Plan)</div>
+        <div class="su-dropdown-item" id="menuViewFront">Standard View: Front Elevation</div>
+        <div class="su-dropdown-item" id="menuViewRight">Standard View: Right Elevation</div>
+        <div class="su-dropdown-item" id="menuViewBack">Standard View: Back Elevation</div>
+        <div class="su-dropdown-item" id="menuViewLeft">Standard View: Left Elevation</div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>Tools</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuToolSelect">Select <span class="shortcut">Space</span></div>
+        <div class="su-dropdown-item" id="menuToolEraser">Eraser <span class="shortcut">E</span></div>
+        <div class="su-dropdown-item" id="menuToolPaint">Paint Bucket <span class="shortcut">B</span></div>
+        <div class="su-dropdown-item" id="menuToolPushPull">Push/Pull <span class="shortcut">P</span></div>
+        <div class="su-dropdown-item" id="menuToolLine">Line <span class="shortcut">L</span></div>
+        <div class="su-dropdown-item" id="menuToolRect">Rectangle <span class="shortcut">R</span></div>
+        <div class="su-dropdown-item" id="menuToolCircle">Circle <span class="shortcut">C</span></div>
+        <div class="su-dropdown-item" id="menuToolSection">Section Plane</div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>Window</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuTrayToggle">Toggle Default Tray</div>
+      </div>
+    </div>
+    <div class="su-menu-item">
+      <span>Help</span>
+      <div class="su-dropdown">
+        <div class="su-dropdown-item" id="menuShortcuts">Keyboard Shortcuts</div>
+        <div class="su-dropdown-item" id="menuAbout">About AadiSketch Pro</div>
+      </div>
+    </div>
+
+    <!-- Window Title Banner -->
+    <div class="su-header-title">AadiSketch Pro — Modern Architectural House.skp</div>
+
+    <div class="su-header-brand">
+      <span class="badge-brand">AadiSketch 1.0</span>
+      <a href="https://wa.me/919341102949" target="_blank" class="dev-tag">Developer: Aadesh Navade (+91 93411 02949)</a>
+    </div>
+  </nav>
+
+  <!-- 2. Standard Top Toolbar Strip -->
+  <div class="su-top-toolbar">
+    <div class="tb-group">
+      <button class="tb-btn" id="btnReload" title="Reload Architectural Sample House">🏠 House</button>
+      <button class="tb-btn" id="btnClear" title="Clear Canvas">🧹 Clear</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="btnUndo" title="Undo (Ctrl+Z)">↩ Undo</button>
+      <button class="tb-btn" id="btnRedo" title="Redo (Ctrl+Y)">↪ Redo</button>
+    </div>
+
+    <!-- Standard Views Toolbar -->
+    <div class="tb-group">
+      <button class="tb-btn" id="btnViewIso" title="Isometric 3D View">🌐 Iso</button>
+      <button class="tb-btn" id="btnViewTop" title="Top Plan View">📐 Top (Plan)</button>
+      <button class="tb-btn" id="btnViewFront" title="Front Elevation">⬆ Front</button>
+      <button class="tb-btn" id="btnViewRight" title="Right Elevation">➡ Right</button>
+      <button class="tb-btn" id="btnViewBack" title="Back Elevation">⬇ Back</button>
+      <button class="tb-btn" id="btnViewLeft" title="Left Elevation">⬅ Left</button>
+    </div>
+
+    <!-- Section Cut Controls -->
+    <div class="tb-group">
+      <button class="tb-btn section-btn" id="btnToolSection" title="Section Plane Tool">📐 Section Plane</button>
+      <button class="tb-btn active-toggle" id="btnToggleSectionCuts" title="Toggle Section Cuts">✂ Cuts: ON</button>
+    </div>
+
+    <!-- Camera Tools (Revit Mouse Navigation) -->
+    <div class="tb-group">
+      <button class="tb-btn" id="btnOrbit" title="Orbit (Right-Click Drag or Shift+MMB)">🔄 Orbit</button>
+      <button class="tb-btn" id="btnPan" title="Pan (MMB Drag or Alt+LMB)">✋ Pan</button>
+      <button class="tb-btn" id="btnZoomExtents" title="Zoom Extents (Shift+Z)">⛶ Extents</button>
+    </div>
+
+    <!-- Units & Export -->
+    <div class="tb-group right-align">
+      <span style="font-size: 11px; color: #475569; font-weight: 600;">Units:</span>
+      <select class="su-select" id="unitSelector">
+        <option value="m" selected>Meters & Millimeters (Metric)</option>
+        <option value="ft">Feet & Inches (Imperial)</option>
+      </select>
+      <button class="tb-btn export-btn" id="btnExportOBJ" title="Export Wavefront OBJ">📦 Export OBJ</button>
+      <button class="tb-btn" id="btnScreenshot" title="Capture PNG Screenshot">📷 Screenshot</button>
+    </div>
+  </div>
+
+  <!-- 3. Main Workspace Container -->
+  <div class="su-main-container">
+    <!-- Left Iconic "Large Tool Set" (SketchUp 2-Column Vertical Palette) -->
+    <aside class="su-large-toolset">
+      <div class="toolset-title">Tools</div>
+      <div class="toolset-grid">
+        <!-- Row 1: SELECT & ERASER -->
+        <button class="tool-icon-btn active" id="toolSelect" title="Select Tool (Spacebar)">
+          <span class="t-icon">↖</span>
+        </button>
+        <button class="tool-icon-btn" id="toolEraser" title="Eraser Tool (E)">
+          <span class="t-icon">🧹</span>
+        </button>
+
+        <!-- Row 2: LINE & RECTANGLE -->
+        <button class="tool-icon-btn" id="toolLine" title="Line / Pencil (L)">
+          <span class="t-icon">✏</span>
+        </button>
+        <button class="tool-icon-btn" id="toolRectangle" title="Rectangle (R)">
+          <span class="t-icon">▭</span>
+        </button>
+
+        <!-- Row 3: CIRCLE & ARC -->
+        <button class="tool-icon-btn" id="toolCircle" title="Circle (C)">
+          <span class="t-icon">◯</span>
+        </button>
+        <button class="tool-icon-btn" id="toolArc" title="Arc (A)">
+          <span class="t-icon">⌒</span>
+        </button>
+
+        <!-- Row 4: THE ICONIC PUSH/PULL & OFFSET -->
+        <button class="tool-icon-btn highlight-pp" id="toolPushPull" title="Push / Pull Face (P)">
+          <span class="t-icon">⇪</span>
+        </button>
+        <button class="tool-icon-btn" id="toolOffset" title="Offset Contours (F)">
+          <span class="t-icon">回</span>
+        </button>
+
+        <!-- Row 5: MOVE & ROTATE -->
+        <button class="tool-icon-btn" id="toolMove" title="Move Entity (M)">
+          <span class="t-icon">✥</span>
+        </button>
+        <button class="tool-icon-btn" id="toolRotate" title="Rotate Entity (Q)">
+          <span class="t-icon">↻</span>
+        </button>
+
+        <!-- Row 6: SCALE & TAPE -->
+        <button class="tool-icon-btn" id="toolScale" title="Scale Entity (S)">
+          <span class="t-icon">⤡</span>
+        </button>
+        <button class="tool-icon-btn" id="toolTape" title="Tape Measure (T)">
+          <span class="t-icon">📏</span>
+        </button>
+
+        <!-- Row 7: PAINT & DIMENSION -->
+        <button class="tool-icon-btn" id="toolPaint" title="Paint Bucket / Materials (B)">
+          <span class="t-icon">🎨</span>
+        </button>
+        <button class="tool-icon-btn" id="toolDimension" title="Dimension Tool (D)">
+          <span class="t-icon">↔</span>
+        </button>
+
+        <!-- Row 8: SECTION PLANE -->
+        <button class="tool-icon-btn highlight-section" id="toolSection" title="Section Plane Tool">
+          <span class="t-icon">✂</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Center 3D Google SketchUp Viewport -->
+    <main class="su-viewport-area" id="viewportContainer">
+      <!-- Three.js Canvas Injected Here -->
+
+      <!-- INTERACTIVE 3D VIEWCUBE IN THE TOP-RIGHT CORNER -->
+      <div class="viewcube-wrapper">
+        <button class="viewcube-home-btn" id="btnCubeHome" title="Reset to Isometric 3D View">🏠</button>
+        <div class="viewcube-scene">
+          <div class="viewcube-box" id="viewCubeBox">
+            <div class="cube-face cube-front" data-view="front">FRONT</div>
+            <div class="cube-face cube-back" data-view="back">BACK</div>
+            <div class="cube-face cube-right" data-view="right">RIGHT</div>
+            <div class="cube-face cube-left" data-view="left">LEFT</div>
+            <div class="cube-face cube-top" data-view="top">TOP</div>
+            <div class="cube-face cube-bottom" data-view="bottom">BOTTOM</div>
+          </div>
+        </div>
+        <!-- Compass Ring -->
+        <div class="compass-ring">
+          <span class="compass-pt n">N</span>
+          <span class="compass-pt e">E</span>
+          <span class="compass-pt s">S</span>
+          <span class="compass-pt w">W</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Side "Default Tray" -->
+    <aside class="su-default-tray" id="defaultTray">
+      <div class="tray-header">
+        <span>Default Tray</span>
+        <button class="tray-pin-btn" id="btnPinTray" title="Collapse / Expand Tray">📌</button>
+      </div>
+
+      <div class="tray-scroll-body">
+        <!-- ▾ TRAY 1: Entity Info -->
+        <div class="tray-panel open" id="panelEntityInfo">
+          <div class="panel-header" data-target="panelEntityInfo">
+            <span class="chevron">▾</span>
+            <span class="panel-title">Entity Info</span>
+          </div>
+          <div class="panel-body" id="entityInfoBody">
+            <div class="empty-note">No selection. Click any face or edge to inspect.</div>
+          </div>
+        </div>
+
+        <!-- ▾ TRAY 2: Materials (Paint Bucket) -->
+        <div class="tray-panel open" id="panelMaterials">
+          <div class="panel-header" data-target="panelMaterials">
+            <span class="chevron">▾</span>
+            <span class="panel-title">Materials</span>
+          </div>
+          <div class="panel-body">
+            <div class="mat-category-row">
+              <select class="su-select" id="matCategorySelect" style="width: 100%;">
+                <option value="all">In Model (All)</option>
+                <option value="Colors">Colors</option>
+                <option value="Brick & Cladding">Brick & Cladding</option>
+                <option value="Wood">Wood</option>
+                <option value="Glass & Mirrors">Glass & Mirrors</option>
+                <option value="Stone & Tile">Stone & Tile</option>
+                <option value="Metal">Metal</option>
+                <option value="Roofing & Landscaping">Roofing & Landscaping</option>
+              </select>
+            </div>
+            <div class="mat-swatch-grid" id="matSwatchGrid">
+              <!-- Swatches generated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ▾ TRAY 3: Components (3D Architectural Library) -->
+        <div class="tray-panel open" id="panelComponents">
+          <div class="panel-header" data-target="panelComponents">
+            <span class="chevron">▾</span>
+            <span class="panel-title">Components</span>
+          </div>
+          <div class="panel-body">
+            <div class="component-card-list">
+              <div class="comp-card" data-comp="door">
+                <span class="comp-icon">🚪</span>
+                <div class="comp-info">
+                  <strong>3D Detailed Door</strong>
+                  <span>Teak casing, ajar panel, lever handle</span>
+                </div>
+              </div>
+              <div class="comp-card" data-comp="window">
+                <span class="comp-icon">🪟</span>
+                <div class="comp-info">
+                  <strong>3D Detailed Window</strong>
+                  <span>Stone sill, casing, float glass</span>
+                </div>
+              </div>
+              <div class="comp-card" data-comp="stairs">
+                <span class="comp-icon">🪜</span>
+                <div class="comp-info">
+                  <strong>Straight Staircase</strong>
+                  <span>12 steps, 260mm tread, 170mm riser</span>
+                </div>
+              </div>
+              <div class="comp-card" data-comp="kitchen">
+                <span class="comp-icon">🍳</span>
+                <div class="comp-info">
+                  <strong>Modular Kitchen</strong>
+                  <span>2.4m base cabinet, black granite top</span>
+                </div>
+              </div>
+              <div class="comp-card" data-comp="bed">
+                <span class="comp-icon">🛏</span>
+                <div class="comp-info">
+                  <strong>King Size Bed</strong>
+                  <span>1.9m × 2.1m with headboard & mattress</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▾ TRAY 4: Styles -->
+        <div class="tray-panel" id="panelStyles">
+          <div class="panel-header" data-target="panelStyles">
+            <span class="chevron">▸</span>
+            <span class="panel-title">Styles</span>
+          </div>
+          <div class="panel-body">
+            <div class="style-option-list">
+              <label><input type="radio" name="styleChoice" value="classic" checked> SketchUp Default (Sky & Earth)</label>
+              <label><input type="radio" name="styleChoice" value="shaded"> Shaded with Textures</label>
+              <label><input type="radio" name="styleChoice" value="monochrome"> Technical Monochrome (White)</label>
+              <label><input type="radio" name="styleChoice" value="blueprint"> Architectural Blueprint</label>
+              <label><input type="radio" name="styleChoice" value="xray"> X-Ray Translucent</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▾ TRAY 5: Model Info & Units -->
+        <div class="tray-panel open" id="panelModelInfo">
+          <div class="panel-header" data-target="panelModelInfo">
+            <span class="chevron">▾</span>
+            <span class="panel-title">Model Info & Navigation</span>
+          </div>
+          <div class="panel-body">
+            <div class="info-row">
+              <span class="info-label">Orbit:</span>
+              <span class="info-val">Right-Click Drag or Shift+MMB</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Pan:</span>
+              <span class="info-val">Middle-Click Drag or Alt+LMB</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Zoom:</span>
+              <span class="info-val">Mouse Scroll Wheel</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Push/Pull:</span>
+              <span class="info-val">Click Face, Drag, Click</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 4. Authentic SketchUp Bottom Status & Measurements Bar -->
+  <footer class="su-bottom-bar">
+    <div class="bar-status-msg" id="statusBarMsg">
+      Select tool: Click entities to select. Shift to extend selection.
+    </div>
+    <div class="bar-center-msg">
+      AadiSketch Pro | Dev: <strong>Aadesh Navade</strong> (+91 93411 02949)
+    </div>
+
+    <!-- Iconic SketchUp Measurements Box -->
+    <div class="measurements-container">
+      <label class="measure-label" id="measureLabel">Measurements:</label>
+      <input type="text" class="measure-input" id="measureInput" placeholder="Distance / Value" title="Type exact value and press Enter">
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/three.min.js"></script>
+  <script src="/aadisketch_app.js"></script>
+  <script>
+    // Initialize Web Application when DOM & Three.js are ready
+    window.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('viewportContainer');
+      if (!container || !window.AadiSketch) return;
+
+      const model = new AadiSketch.SketchUpModel('Modern Architectural House');
+      model.loadSampleBuilding();
+
+      const onStatus = (msg) => {
+        const el = document.getElementById('statusBarMsg');
+        if (el) el.textContent = msg;
+      };
+
+      const onMeasure = (label, val) => {
+        const lbl = document.getElementById('measureLabel');
+        const inp = document.getElementById('measureInput');
+        if (lbl) lbl.textContent = label ? `${label}:` : 'Measurements:';
+        if (inp && val !== undefined && document.activeElement !== inp) inp.value = val;
+      };
+
+      const onViewCubeAngle = (degX, degY) => {
+        const cubeBox = document.getElementById('viewCubeBox');
+        if (cubeBox) cubeBox.style.transform = `rotateX(${(-degX).toFixed(1)}deg) rotateY(${(-degY).toFixed(1)}deg)`;
+      };
+
+      const onSelect = (type, entity) => {
+        const info = document.getElementById('entityInfoBody');
+        if (!info) return;
+        if (!entity) {
+          info.innerHTML = '<div class="empty-note">No selection. Click any face or edge to inspect.</div>';
+          return;
+        }
+        info.innerHTML = `
+          <div class="info-row"><span class="info-label">Entity:</span><span class="info-val">${type === 'face' ? 'Face (Surface)' : 'Edge'}</span></div>
+          <div class="info-row"><span class="info-label">Area:</span><span class="info-val font-mono">${entity.area || '—'} ${model.units === 'ft' ? 'sq ft' : 'sq m'}</span></div>
+          <div class="info-row"><span class="info-label">Normal:</span><span class="info-val font-mono">(${entity.normal?.x.toFixed(2)}, ${entity.normal?.y.toFixed(2)}, ${entity.normal?.z.toFixed(2)})</span></div>
+          <div class="info-row"><span class="info-label">Material:</span><span class="info-val" style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:${entity.material?.color || '#fff'};border:1px solid #94a3b8;display:inline-block;"></span>${entity.material?.name || 'Default'}</span></div>
+        `;
+      };
+
+      const viewport = new AadiSketch.SketchUpViewport(container, onSelect, (action, e, hit) => {
+        if (toolManager) toolManager.handleAction(action, e, hit);
+      }, onViewCubeAngle);
+
+      viewport.setModel(model);
+      const toolManager = new AadiSketch.ToolManager(model, viewport, onStatus, onMeasure);
+
+      // Tool Buttons
+      const tools = [
+        { id: 'toolSelect', name: 'select' },
+        { id: 'toolEraser', name: 'eraser' },
+        { id: 'toolLine', name: 'line' },
+        { id: 'toolRectangle', name: 'rectangle' },
+        { id: 'toolCircle', name: 'circle' },
+        { id: 'toolPushPull', name: 'pushpull' },
+        { id: 'toolOffset', name: 'offset' },
+        { id: 'toolMove', name: 'move' },
+        { id: 'toolTape', name: 'tape' },
+        { id: 'toolPaint', name: 'paint' },
+        { id: 'toolSection', name: 'section' }
+      ];
+
+      tools.forEach(t => {
+        document.getElementById(t.id)?.addEventListener('click', () => {
+          document.querySelectorAll('.tool-icon-btn').forEach(b => b.classList.remove('active'));
+          document.getElementById(t.id)?.classList.add('active');
+          toolManager.setTool(t.name);
+        });
+      });
+
+      // View Buttons
+      const views = {
+        btnViewIso: 'iso', btnViewTop: 'top', btnViewFront: 'front',
+        btnViewRight: 'right', btnViewBack: 'back', btnViewLeft: 'left'
+      };
+      for (const [id, v] of Object.entries(views)) {
+        document.getElementById(id)?.addEventListener('click', () => {
+          viewport.setStandardView(v);
+          onStatus(`Camera set to ${v.toUpperCase()} view.`);
+        });
+      }
+
+      // ViewCube
+      document.querySelectorAll('.cube-face').forEach(f => {
+        f.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const v = f.getAttribute('data-view');
+          if (v) viewport.setStandardView(v);
+        });
+      });
+      document.getElementById('btnCubeHome')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewport.setStandardView('iso');
+      });
+
+      // Model Actions
+      document.getElementById('btnReload')?.addEventListener('click', () => {
+        model.loadSampleBuilding();
+        viewport.rebuildScene();
+        viewport.setStandardView('iso');
+        onStatus('Reloaded complete 3D architectural sample house.');
+      });
+
+      document.getElementById('btnClear')?.addEventListener('click', () => {
+        model.faces = [];
+        model.edges = [];
+        viewport.rebuildScene();
+        onStatus('Canvas cleared. Click Rectangle or Line to start drafting.');
+      });
+
+      document.getElementById('btnUndo')?.addEventListener('click', () => {
+        if (model.undo()) { viewport.rebuildScene(); onStatus('Undo completed.'); }
+      });
+      document.getElementById('btnRedo')?.addEventListener('click', () => {
+        if (model.redo()) { viewport.rebuildScene(); onStatus('Redo completed.'); }
+      });
+
+      // Section Cut Toggle
+      const btnCuts = document.getElementById('btnToggleSectionCuts');
+      btnCuts?.addEventListener('click', () => {
+        model.displaySectionCuts = !model.displaySectionCuts;
+        btnCuts.textContent = model.displaySectionCuts ? '✂ Cuts: ON' : '✂ Cuts: OFF';
+        btnCuts.classList.toggle('active-toggle', model.displaySectionCuts);
+        viewport.rebuildScene();
+      });
+
+      document.getElementById('btnToolSection')?.addEventListener('click', () => {
+        document.getElementById('toolSection')?.click();
+      });
+
+      // Export OBJ
+      document.getElementById('btnExportOBJ')?.addEventListener('click', () => {
+        const obj = AadiSketch.OBJExporter.exportToOBJ(model);
+        const blob = new Blob([obj], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${model.name || 'Building'}.obj`;
+        a.click();
+        onStatus('Exported 3D Wavefront OBJ file.');
+      });
+
+      // Screenshot PNG
+      document.getElementById('btnScreenshot')?.addEventListener('click', () => {
+        const url = viewport.renderer.domElement.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AadiSketch_${Date.now()}.png`;
+        a.click();
+        onStatus('Saved high-resolution PNG screenshot.');
+      });
+
+      // Measurements Input
+      const measureInput = document.getElementById('measureInput');
+      measureInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          toolManager.applyTypedInput(measureInput.value);
+        }
+      });
+
+      // Materials Swatches
+      const swatchGrid = document.getElementById('matSwatchGrid');
+      const catSelect = document.getElementById('matCategorySelect');
+      const renderSwatches = (cat = 'all') => {
+        if (!swatchGrid) return;
+        swatchGrid.innerHTML = '';
+        for (const [k, mat] of Object.entries(AadiSketch.SKETCHUP_MATERIALS)) {
+          if (cat !== 'all' && mat.category !== cat) continue;
+          const card = document.createElement('div');
+          card.className = 'mat-card';
+          card.style.backgroundColor = mat.color;
+          card.style.color = (mat.color === '#18181b' || mat.color === '#1e293b' || mat.color === '#991b1b') ? '#fff' : '#0f172a';
+          card.textContent = mat.name.split(' ')[0];
+          card.title = `${mat.name} (${mat.category})`;
+          card.addEventListener('click', () => {
+            toolManager.activeMaterial = { ...mat };
+            document.getElementById('toolPaint')?.click();
+            onStatus(`Active Paint Material: ${mat.name}. Click face to apply.`);
+          });
+          swatchGrid.appendChild(card);
+        }
+      };
+      renderSwatches('all');
+      catSelect?.addEventListener('change', (e) => renderSwatches(e.target.value));
+
+      // 3D Components
+      document.querySelectorAll('.comp-card').forEach(c => {
+        c.addEventListener('click', () => {
+          const type = c.getAttribute('data-comp');
+          const pos = new AadiSketch.Point3D(6, 6, 0);
+          if (type === 'door') AadiSketch.ComponentLibrary.insertDoor(model, pos);
+          else if (type === 'window') AadiSketch.ComponentLibrary.insertWindow(model, pos);
+          else if (type === 'stairs') AadiSketch.ComponentLibrary.insertStairs(model, pos);
+          else if (type === 'kitchen') AadiSketch.ComponentLibrary.insertKitchenCounter(model, pos);
+          else if (type === 'bed') AadiSketch.ComponentLibrary.insertKingBed(model, pos);
+          viewport.rebuildScene();
+          onStatus(`Inserted 3D ${c.querySelector('strong').textContent}.`);
+        });
+      });
+
+      // Styles
+      document.querySelectorAll('input[name="styleChoice"]').forEach(r => {
+        r.addEventListener('change', (e) => {
+          viewport.currentStyle = e.target.value;
+          viewport.rebuildScene();
+          onStatus(`Display Style: ${e.target.value.toUpperCase()}`);
+        });
+      });
+
+      // Units Selector
+      document.getElementById('unitSelector')?.addEventListener('change', (e) => {
+        model.units = e.target.value;
+        onStatus(`Units set to ${e.target.value === 'ft' ? 'Feet & Inches' : 'Meters & Millimeters'}.`);
+      });
+
+      // Default Tray Accordion Toggle
+      document.querySelectorAll('.panel-header').forEach(h => {
+        h.addEventListener('click', () => {
+          const target = document.getElementById(h.getAttribute('data-target'));
+          if (target) {
+            target.classList.toggle('open');
+            const chev = h.querySelector('.chevron');
+            if (chev) chev.textContent = target.classList.contains('open') ? '▾' : '▸';
+          }
+        });
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (['input', 'textarea', 'select'].includes(document.activeElement?.tagName?.toLowerCase())) return;
+        const k = e.key.toLowerCase();
+        if (k === ' ') { e.preventDefault(); document.getElementById('toolSelect')?.click(); }
+        else if (k === 'p') document.getElementById('toolPushPull')?.click();
+        else if (k === 'l') document.getElementById('toolLine')?.click();
+        else if (k === 'r') document.getElementById('toolRectangle')?.click();
+        else if (k === 'c') document.getElementById('toolCircle')?.click();
+        else if (k === 'e') document.getElementById('toolEraser')?.click();
+        else if (k === 'b') document.getElementById('toolPaint')?.click();
+        else if (k === 'o') document.getElementById('btnOrbit')?.click();
+        else if (k === 'h') document.getElementById('btnPan')?.click();
+        else if (e.ctrlKey && k === 'z') { e.preventDefault(); document.getElementById('btnUndo')?.click(); }
+        else if (e.ctrlKey && k === 'y') { e.preventDefault(); document.getElementById('btnRedo')?.click(); }
+      });
+
+      // Window Resize
+      window.addEventListener('resize', () => viewport.onResize());
+
+      window.AadiSketchInstance = { model, viewport, toolManager };
+      console.log('[AadiSketch Pro] Web Application fully loaded and ready.');
+    });
+  </script>
+</body>
+</html>

@@ -484,16 +484,18 @@
     initMouseNavigation() {
       let isOrbiting = false;
       let isPanning = false;
+      let isCanvasDown = false;
       let prev = { x: 0, y: 0 };
       const dom = this.renderer.domElement;
 
       const updateMouse = (e) => {
         const rect = dom.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / dom.clientWidth) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / dom.clientHeight) * 2 + 1;
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       };
 
       dom.addEventListener('pointerdown', (e) => {
+        isCanvasDown = true;
         prev = { x: e.clientX, y: e.clientY };
         updateMouse(e);
 
@@ -558,7 +560,8 @@
           dom.style.cursor = 'default';
           return;
         }
-        if (e.button === 0) {
+        if (e.button === 0 && isCanvasDown) {
+          isCanvasDown = false;
           this.onToolAction('pointerup', e, this.getIntersectionPoint());
         }
       });
@@ -621,6 +624,8 @@
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         geo.computeVertexNormals();
+        geo.computeBoundingBox();
+        geo.computeBoundingSphere();
 
         let color = face.material?.color || '#ffffff';
         if (this.selectedFaceId === face.id) color = '#38bdf8';

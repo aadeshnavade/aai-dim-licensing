@@ -1094,10 +1094,16 @@ let aadisketchToolManager = null;
 
 function initAadiSketchWeb() {
     const container = document.getElementById('aadisketchWebContainer');
-    if (!container || aadisketchViewport || !window.AadiSketchWeb || !window.THREE) return;
+    if (!container || aadisketchViewport) return;
+
+    const Engine = window.AadiSketch || window.AadiSketchWeb;
+    if (!Engine || !window.THREE) {
+        setTimeout(initAadiSketchWeb, 100);
+        return;
+    }
 
     try {
-        aadisketchModel = new AadiSketchWeb.SketchUpModel('Web Building Project');
+        aadisketchModel = new Engine.SketchUpModel('Web Building Project');
         aadisketchModel.loadSampleBuilding();
 
         const statusEl = document.getElementById('aadisketchStatusPrompt');
@@ -1137,12 +1143,12 @@ function initAadiSketchWeb() {
             }
         };
 
-        aadisketchViewport = new AadiSketchWeb.SketchUpViewport(container, onSelect, (action, e, hit) => {
+        aadisketchViewport = new Engine.SketchUpViewport(container, onSelect, (action, e, hit) => {
             if (aadisketchToolManager) aadisketchToolManager.handleAction(action, e, hit);
         }, onViewAngleChange);
 
         aadisketchViewport.setModel(aadisketchModel);
-        aadisketchToolManager = new AadiSketchWeb.ToolManager(aadisketchModel, aadisketchViewport, onStatus, onMeasure);
+        aadisketchToolManager = new Engine.ToolManager(aadisketchModel, aadisketchViewport, onStatus, onMeasure);
 
         // ViewCube click handlers
         const cubeFaces = document.querySelectorAll('#aadisketchViewCubeBox .cube-face');
@@ -1225,18 +1231,20 @@ function setWebCADMaterial(color, name) {
 
 function addWebCADComponent(type) {
     if (!aadisketchModel || !aadisketchViewport) return;
-    if (type === 'door') {
-        const d = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(5, -0.05, 0), new AadiSketchWeb.Point3D(6.1, 0.05, 0), 0, { color: '#92400e', name: 'Wood Door' });
-        aadisketchModel.pushPullFace(d.id, 2.1);
-    } else if (type === 'window') {
-        const w = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(9.5, -0.05, 0.9), new AadiSketchWeb.Point3D(11.5, 0.05, 0.9), 0.9, { color: '#38bdf8', name: 'Glazing' });
-        aadisketchModel.pushPullFace(w.id, 1.3);
-    } else if (type === 'column') {
-        const c = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(4, 4, 0), new AadiSketchWeb.Point3D(4.5, 4.5, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
-        aadisketchModel.pushPullFace(c.id, 3.2);
-    } else if (type === 'bed') {
-        const b = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(10, 2, 0), new AadiSketchWeb.Point3D(13, 4, 0), 0, { color: '#3b82f6', name: 'King Bed' });
-        aadisketchModel.pushPullFace(b.id, 0.6);
+    const Engine = window.AadiSketch || window.AadiSketchWeb;
+    const Point = Engine.Point3D;
+    const Lib = Engine.ComponentLibrary;
+
+    if (Lib) {
+        if (type === 'door') Lib.insertDoor(aadisketchModel, new Point(5, 0, 0));
+        else if (type === 'window') Lib.insertWindow(aadisketchModel, new Point(9, 0, 0));
+        else if (type === 'stairs') Lib.insertStairs(aadisketchModel, new Point(2, 4, 0));
+        else if (type === 'kitchen') Lib.insertKitchenCounter(aadisketchModel, new Point(8, 7, 0));
+        else if (type === 'bed') Lib.insertKingBed(aadisketchModel, new Point(10, 2, 0));
+        else if (type === 'column') {
+            const c = aadisketchModel.createRectangle(new Point(4, 4, 0), new Point(4.5, 4.5, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
+            aadisketchModel.pushPullFace(c.id, 3.2);
+        }
     }
     aadisketchViewport.rebuildScene();
     if (aadisketchToolManager) aadisketchToolManager.onStatus(`Added 3D ${type} component.`);

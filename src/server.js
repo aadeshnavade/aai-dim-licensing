@@ -37,6 +37,11 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Dedicated Full-Screen AadiSketch Pro Web Application
+app.get(['/app', '/sketch', '/aadisketch', '/studio'], (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
+});
+
 // Single Page Application fallback for web navigation
 app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api')) {

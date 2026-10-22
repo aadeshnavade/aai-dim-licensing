@@ -70,6 +70,8 @@ function runTests() {
       setFromPoints() { return this; }
       setAttribute() { return this; }
       computeVertexNormals() {}
+      computeBoundingBox() {}
+      computeBoundingSphere() {}
     },
     Float32BufferAttribute: class {},
     MeshStandardMaterial: class {},

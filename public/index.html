@@ -27,8 +27,9 @@
             }
         }
     </script>
-    <!-- Three.js CDN & AadiSketch Web Engine -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Three.js Local Engine & AadiSketch App Core -->
+    <script src="/three.min.js"></script>
+    <script src="/aadisketch_app.js"></script>
     <script src="/aadisketch_web.js"></script>
     <style>
         .badge-active { @apply bg-emerald-100 text-emerald-800 border border-emerald-300; }
@@ -152,9 +153,9 @@
                 </div>
 
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <button onclick="switchToAadiSketchTab()" class="nav-btn px-3 py-2 rounded-md text-sm font-bold text-cyan-300 bg-slate-800 hover:bg-slate-700 hover:text-cyan-200 transition flex items-center border border-cyan-500/30 shadow-sm">
-                        <i class="fa-solid fa-cube text-cyan-400 mr-1.5"></i> 3D Modeler Studio
-                    </button>
+                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-3.5 py-2 rounded-lg text-sm shadow-md transition flex items-center border border-cyan-400/30">
+                        <i class="fa-solid fa-cube text-cyan-200 mr-1.5"></i> Launch AadiSketch Pro
+                    </a>
                     <button onclick="showView('pricing')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
                         <i class="fa-solid fa-tag mr-1.5"></i> Pricing & Plans
                     </button>
@@ -199,10 +200,10 @@
                     SketchUp-style direct on-screen Push/Pull modeling combined with Revit-style precision detailing, auto-dimensioning, 9-zone Vastu Shastra analysis, and buildingSMART IFC 4.3 export.
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-                    <button onclick="switchToAadiSketchTab()" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-7 py-3 rounded-xl shadow-lg hover:shadow-cyan-500/25 transition flex items-center space-x-2">
-                        <i class="fa-solid fa-cube text-cyan-200"></i>
-                        <span>Launch Live 3D Modeler</span>
-                    </button>
+                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-base px-8 py-3.5 rounded-xl shadow-xl hover:shadow-cyan-500/30 transition flex items-center space-x-2.5">
+                        <i class="fa-solid fa-cube text-cyan-200 text-lg"></i>
+                        <span>Launch Full-Screen AadiSketch App</span>
+                    </a>
                     <button onclick="scrollToPlans()" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl shadow-sm transition">
                         View Subscription Plans
                     </button>
@@ -304,8 +305,11 @@
                                 <button onclick="clearWebCADModel()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 transition flex items-center">
                                     <i class="fa-solid fa-trash-can mr-1.5"></i> Clear
                                 </button>
-                                <a href="https://github.com/aadeshnavade/aai-dim-licensing/releases" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
-                                    <i class="fa-solid fa-download mr-1.5"></i> Download Desktop .exe
+                                <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-up-right-from-square mr-1.5"></i> Full-Screen App (/app)
+                                </a>
+                                <a href="https://github.com/aadeshnavade/aai-dim-licensing/releases" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-download mr-1.5"></i> Desktop .exe
                                 </a>
                             </div>
                         </div>
