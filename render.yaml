@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: aai-dim-licensing
+    name: aai-3d-licensing
     env: docker
     plan: free
     region: oregon

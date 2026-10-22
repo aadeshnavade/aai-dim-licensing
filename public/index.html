@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AAI DIM | Autonomous Dimensioning & Licensing Platform</title>
+    <title>AAI 3D | Autonomous Architectural Modeling, BIM & Licensing Platform</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,11 +27,105 @@
             }
         }
     </script>
+    <!-- Three.js CDN & AadiSketch Web Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/aadisketch_web.js"></script>
     <style>
         .badge-active { @apply bg-emerald-100 text-emerald-800 border border-emerald-300; }
         .badge-expired { @apply bg-amber-100 text-amber-800 border border-amber-300; }
         .badge-suspended { @apply bg-rose-100 text-rose-800 border border-rose-300; }
         .badge-pending { @apply bg-blue-100 text-blue-800 border border-blue-300; }
+
+        /* 3D ViewCube in Top-Right */
+        .viewcube-wrapper {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 90px;
+            height: 90px;
+            z-index: 30;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .viewcube-home-btn {
+            position: absolute;
+            top: -4px;
+            left: 0px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #94a3b8;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 1px 5px;
+            z-index: 40;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: all 0.15s ease;
+        }
+        .viewcube-home-btn:hover {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0369a1;
+        }
+        .viewcube-scene {
+            width: 52px;
+            height: 52px;
+            perspective: 350px;
+            margin-top: 4px;
+        }
+        .viewcube-box {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-30deg) rotateY(45deg);
+            transition: transform 0.05s ease-out;
+        }
+        .cube-face {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            border: 1.5px solid #475569;
+            background: rgba(248, 250, 252, 0.95);
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.15);
+            transition: background-color 0.12s ease, color 0.12s ease;
+        }
+        .cube-face:hover {
+            background-color: #0284c7;
+            color: #ffffff;
+        }
+        .cube-front  { transform: rotateY(0deg) translateZ(26px); }
+        .cube-back   { transform: rotateY(180deg) translateZ(26px); }
+        .cube-right  { transform: rotateY(90deg) translateZ(26px); }
+        .cube-left   { transform: rotateY(-90deg) translateZ(26px); }
+        .cube-top    { transform: rotateX(90deg) translateZ(26px); }
+        .cube-bottom { transform: rotateX(-90deg) translateZ(26px); }
+
+        .compass-ring {
+            position: absolute;
+            bottom: -2px;
+            width: 76px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 4px;
+            font-size: 8px;
+            font-weight: 800;
+            color: #64748b;
+            pointer-events: none;
+        }
+        .compass-pt.n { color: #dc2626; font-weight: 900; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans relative overflow-x-hidden">
@@ -50,7 +144,7 @@
                     <img src="/assets/logo.png" alt="AAI Logo" class="w-11 h-11 object-contain rounded-full bg-white p-0.5 shadow-md border border-slate-700">
                     <div>
                         <div class="text-xl font-bold tracking-tight text-white flex items-center space-x-2">
-                            <span>AAI DIM</span>
+                            <span>AAI 3D</span>
                             <span class="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-400/30">v1.0 Pro</span>
                         </div>
                         <div class="text-[11px] text-cyan-400 font-medium tracking-wide">AIM • ACHIEVE • INSPIRE</div>
@@ -58,6 +152,9 @@
                 </div>
 
                 <div class="flex items-center space-x-2 sm:space-x-4">
+                    <button onclick="switchToAadiSketchTab()" class="nav-btn px-3 py-2 rounded-md text-sm font-bold text-cyan-300 bg-slate-800 hover:bg-slate-700 hover:text-cyan-200 transition flex items-center border border-cyan-500/30 shadow-sm">
+                        <i class="fa-solid fa-cube text-cyan-400 mr-1.5"></i> 3D Modeler Studio
+                    </button>
                     <button onclick="showView('pricing')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
                         <i class="fa-solid fa-tag mr-1.5"></i> Pricing & Plans
                     </button>
@@ -90,22 +187,26 @@
                 <div class="flex flex-col items-center justify-center space-y-3">
                     <img src="/assets/logo.png" alt="AAI Logo" class="w-24 h-24 object-contain rounded-full bg-white p-1.5 shadow-xl border-2 border-slate-200 hover:scale-105 transition-transform duration-300">
                     <div class="inline-flex items-center space-x-2 px-3.5 py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-semibold tracking-wide uppercase">
-                        <span>Revit 2024 • 2025 • 2026 • 2027+</span>
+                        <span>Windows 11 / 10 • Native 64-bit Desktop</span>
                         <span class="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
                         <span class="font-bold text-slate-800">AIM • ACHIEVE • INSPIRE</span>
                     </div>
                 </div>
                 <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                    Autonomous BIM Dimensioning &amp; <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Digital Twin AI</span> for Autodesk Revit
+                    Autonomous 3D Architectural Modeler &amp; <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Vastu-Aware BIM Engine</span>
                 </h1>
                 <p class="text-lg text-slate-600">
-                    Draft entire floor plans, inclined facades, openings, and elevations with a single click. Powered by true aligned geometry analysis and conversational AI.
+                    SketchUp-style direct on-screen Push/Pull modeling combined with Revit-style precision detailing, auto-dimensioning, 9-zone Vastu Shastra analysis, and buildingSMART IFC 4.3 export.
                 </p>
-                <div class="flex items-center justify-center space-x-4 pt-2">
-                    <button onclick="scrollToPlans()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition">
+                <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <button onclick="switchToAadiSketchTab()" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-7 py-3 rounded-xl shadow-lg hover:shadow-cyan-500/25 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-cube text-cyan-200"></i>
+                        <span>Launch Live 3D Modeler</span>
+                    </button>
+                    <button onclick="scrollToPlans()" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl shadow-sm transition">
                         View Subscription Plans
                     </button>
-                    <button onclick="showView('customer')" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-lg transition shadow-sm">
+                    <button onclick="showView('customer')" class="bg-slate-100 border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl transition shadow-sm">
                         Sign In to Download
                     </button>
                 </div>
@@ -117,29 +218,29 @@
                     <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xl font-bold">
                         📐
                     </div>
-                    <h3 class="font-bold text-slate-900">Aligned &amp; Inclined Walls</h3>
-                    <p class="text-xs text-slate-600">Creates true aligned dimensions parallel to angled walls instead of chord distortions.</p>
+                    <h3 class="font-bold text-slate-900">SketchUp-Style Push/Pull</h3>
+                    <p class="text-xs text-slate-600">Click directly on any wall face to pull or push thickness and height in real-time with dynamic dimension adjustment.</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
                     <div class="w-10 h-10 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-xl font-bold">
                         🤖
                     </div>
-                    <h3 class="font-bold text-slate-900">AAI Conversational Copilot</h3>
-                    <p class="text-xs text-slate-600">Type plain English instructions to auto-dimension facades, clear, offset, or sync elements.</p>
+                    <h3 class="font-bold text-slate-900">AI Architectural Copilot</h3>
+                    <p class="text-xs text-slate-600">Type plain English prompts like "Move wall 300 mm east", "Change kitchen to bedroom", or "Design a 30x40 2 BHK".</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
                     <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl font-bold">
                         🔄
                     </div>
-                    <h3 class="font-bold text-slate-900">Dynamic Live Sync</h3>
-                    <p class="text-xs text-slate-600">Dynamic model updater re-adjusts dimensions when doors, windows, or walls are modified.</p>
+                    <h3 class="font-bold text-slate-900">Revit-Style Detailing &amp; Scale</h3>
+                    <p class="text-xs text-slate-600">Multi-tier associative dimensions with anti-overlap collision avoidance and customizable annotation scales (1:50, 1:100).</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
                     <div class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xl font-bold">
                         📦
                     </div>
-                    <h3 class="font-bold text-slate-900">Multi-Version Ready</h3>
-                    <p class="text-xs text-slate-600">Single one-click installer compatible with Revit 2024 through Revit 2027+.</p>
+                    <h3 class="font-bold text-slate-900">Vastu Shastra Intelligence</h3>
+                    <p class="text-xs text-slate-600">9-zone directional scoring (SW Master Bed, SE Kitchen, NE Pooja) with transparent scorecard and user override capability.</p>
                 </div>
             </div>
 
@@ -162,17 +263,17 @@
 
                 <!-- Showcase Interactive Tab Controls -->
                 <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto p-1.5 bg-slate-200/90 rounded-2xl backdrop-blur-sm border border-slate-300 shadow-inner">
-                    <button id="showcaseTab1Btn" onclick="switchShowcaseTab('sheet')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm bg-blue-600 text-white flex items-center space-x-2">
-                        <i class="fa-solid fa-file-lines text-cyan-300"></i>
+                    <button id="showcaseTab1Btn" onclick="switchShowcaseTab('aadisketch')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm bg-blue-600 text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-cube text-cyan-300"></i>
+                        <span>AadiSketch 3D Modeler (Live Studio)</span>
+                    </button>
+                    <button id="showcaseTab2Btn" onclick="switchShowcaseTab('sheet')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-lines text-cyan-500"></i>
                         <span>BIM Construction Sheet (A101)</span>
                     </button>
-                    <button id="showcaseTab2Btn" onclick="switchShowcaseTab('digitaltwin')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
-                        <i class="fa-solid fa-cube text-cyan-500"></i>
+                    <button id="showcaseTab3Btn" onclick="switchShowcaseTab('digitaltwin')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
+                        <i class="fa-solid fa-city text-purple-500"></i>
                         <span>Advanced 3D Digital Twin</span>
-                    </button>
-                    <button id="showcaseTab3Btn" onclick="switchShowcaseTab('aligned')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
-                        <i class="fa-solid fa-compass-drafting text-purple-500"></i>
-                        <span>Aligned &amp; Inclined Facades</span>
                     </button>
                     <button id="showcaseTab4Btn" onclick="switchShowcaseTab('copilot')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
                         <i class="fa-solid fa-brain text-emerald-500"></i>
@@ -181,10 +282,233 @@
                 </div>
 
                 <!-- Showcase Content Box -->
-                <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden max-w-6xl mx-auto">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden max-w-6xl mx-auto" id="aadisketchStudioSection">
                     
+                    <!-- TAB 0: LIVE AADISKETCH 3D MODELER STUDIO -->
+                    <div id="showcaseTabAadisketch" class="p-4 sm:p-6 space-y-4">
+                        <!-- Top Header & Banner -->
+                        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Interactive 3D Web CAD</span>
+                                    <span class="bg-cyan-100 text-cyan-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-cyan-300">PURE SKETCHUP CORE</span>
+                                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">REVIT MOUSE CONTROLS</span>
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-black text-slate-900">AadiSketch Pro • Web 3D Modeling Studio</h3>
+                                <p class="text-xs text-slate-500">Click &amp; Push/Pull directly on screen • Inference Axis Snapping (Red/Green/Blue) • 3D ViewCube &amp; Precision Measurements</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="resetWebCADSample()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition flex items-center shadow-sm">
+                                    <i class="fa-solid fa-house-chimney text-blue-600 mr-1.5"></i> Reload 3D House
+                                </button>
+                                <button onclick="clearWebCADModel()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 transition flex items-center">
+                                    <i class="fa-solid fa-trash-can mr-1.5"></i> Clear
+                                </button>
+                                <a href="https://github.com/aadeshnavade/aai-dim-licensing/releases" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-download mr-1.5"></i> Download Desktop .exe
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- CAD Tool Ribbon -->
+                        <div class="bg-slate-100 border border-slate-200 rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button onclick="setWebCADTool('select')" data-tool="select" class="web-cad-tool-btn bg-blue-600 text-white shadow-md px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center">
+                                    <i class="fa-solid fa-arrow-pointer mr-1.5"></i> Select
+                                </button>
+                                <button onclick="setWebCADTool('pushpull')" data-tool="pushpull" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-up-down-left-right text-amber-600 mr-1.5"></i> Push/Pull
+                                </button>
+                                <button onclick="setWebCADTool('line')" data-tool="line" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-pencil text-red-500 mr-1.5"></i> Line
+                                </button>
+                                <button onclick="setWebCADTool('rectangle')" data-tool="rectangle" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-regular fa-square text-blue-600 mr-1.5"></i> Rectangle
+                                </button>
+                                <button onclick="setWebCADTool('circle')" data-tool="circle" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-regular fa-circle text-emerald-600 mr-1.5"></i> Circle
+                                </button>
+                                <button onclick="setWebCADTool('eraser')" data-tool="eraser" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-eraser text-rose-500 mr-1.5"></i> Eraser
+                                </button>
+                                <button onclick="setWebCADTool('paint')" data-tool="paint" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-fill-drip text-purple-600 mr-1.5"></i> Paint
+                                </button>
+                            </div>
+
+                            <!-- Views & History Buttons -->
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Views:</span>
+                                <button onclick="setWebStandardView('top')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Top (Plan) View">
+                                    Top (Plan)
+                                </button>
+                                <button onclick="setWebStandardView('front')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Front Elevation">
+                                    Front
+                                </button>
+                                <button onclick="setWebStandardView('right')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Right Elevation">
+                                    Right
+                                </button>
+                                <button onclick="setWebStandardView('iso')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Isometric 3D">
+                                    Iso 3D
+                                </button>
+                                <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                                <button onclick="undoWebCAD()" class="bg-white hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs border border-slate-300 shadow-sm" title="Undo">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                                <button onclick="redoWebCAD()" class="bg-white hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs border border-slate-300 shadow-sm" title="Redo">
+                                    <i class="fa-solid fa-rotate-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Center Canvas & Inspector Layout Grid -->
+                        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                            <!-- Left: 3D Viewport (3 cols) -->
+                            <div class="lg:col-span-3 bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative min-h-[520px] flex flex-col">
+                                <!-- WebGL 3D Canvas Container -->
+                                <div id="aadisketchWebContainer" class="w-full flex-grow relative cursor-crosshair min-h-[480px]">
+                                    <!-- Three.js Canvas injected here -->
+
+                                    <!-- INTERACTIVE 3D VIEWCUBE IN THE TOP-RIGHT CORNER -->
+                                    <div class="viewcube-wrapper">
+                                        <button class="viewcube-home-btn" id="aadisketchCubeHome" title="Reset to Isometric 3D View">
+                                            <i class="fa-solid fa-house text-[10px]"></i>
+                                        </button>
+                                        <div class="viewcube-scene">
+                                            <div class="viewcube-box" id="aadisketchViewCubeBox">
+                                                <div class="cube-face cube-front" data-view="front">FRONT</div>
+                                                <div class="cube-face cube-back" data-view="back">BACK</div>
+                                                <div class="cube-face cube-right" data-view="right">RIGHT</div>
+                                                <div class="cube-face cube-left" data-view="left">LEFT</div>
+                                                <div class="cube-face cube-top" data-view="top">TOP</div>
+                                                <div class="cube-face cube-bottom" data-view="bottom">BOTTOM</div>
+                                            </div>
+                                        </div>
+                                        <div class="compass-ring">
+                                            <span class="compass-pt">W</span>
+                                            <span class="compass-pt n">N</span>
+                                            <span class="compass-pt">E</span>
+                                            <span class="compass-pt">S</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Overlay Helper Guide (Revit & SketchUp Controls) -->
+                                    <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/60 text-[11px] text-slate-300 pointer-events-none shadow">
+                                        <span class="font-bold text-cyan-400">Navigation:</span> Right-Click Drag = Orbit • MMB Drag = Pan • Wheel = Zoom
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Status & Measurements Bar -->
+                                <div class="h-10 bg-slate-950 border-t border-slate-800 px-4 flex items-center justify-between text-xs font-mono text-slate-300">
+                                    <div class="flex items-center space-x-2 truncate">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <span id="aadisketchStatusPrompt" class="text-slate-300 truncate">Select Tool: Click any face or edge to inspect.</span>
+                                    </div>
+                                    <!-- Measurements Box -->
+                                    <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1 rounded border border-slate-700">
+                                        <span id="aadisketchMeasureLabel" class="text-slate-400 font-sans text-[11px]">Measurements:</span>
+                                        <input type="text" id="aadisketchMeasureVal" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 text-xs w-28 text-right font-mono focus:outline-none focus:border-cyan-500" placeholder="0.00 m" title="Type distance or dimensions and press Enter">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Default Tray / Inspector Panel (1 col) -->
+                            <div class="lg:col-span-1 space-y-4">
+                                <!-- Entity Info -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center">
+                                            <i class="fa-solid fa-circle-info text-blue-600 mr-1.5"></i> Entity Info
+                                        </h4>
+                                        <span id="traySelectedType" class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">Face (Surface)</span>
+                                    </div>
+                                    <div class="space-y-1.5 text-xs">
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Surface Area:</span>
+                                            <span id="traySelectedArea" class="font-mono font-bold text-slate-900">42.50 sq m</span>
+                                        </div>
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Normal Vector:</span>
+                                            <span id="traySelectedNormal" class="font-mono text-slate-700">(0.00, 0.00, 1.00)</span>
+                                        </div>
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Active Material:</span>
+                                            <span id="trayActiveMatName" class="font-bold text-blue-600 truncate">Default Plaster</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Architectural Materials -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center border-b border-slate-100 pb-2">
+                                        <i class="fa-solid fa-palette text-amber-500 mr-1.5"></i> Materials Palette
+                                    </h4>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <button onclick="setWebCADMaterial('#f1f5f9', 'Wall Plaster')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Wall Plaster">
+                                            <span class="w-6 h-6 rounded-md bg-[#f1f5f9] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Plaster</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#b45309', 'Hardwood Parquet')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Hardwood Parquet">
+                                            <span class="w-6 h-6 rounded-md bg-[#b45309] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Wood</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#e0f2fe', 'Polished Granite')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Polished Granite">
+                                            <span class="w-6 h-6 rounded-md bg-[#e0f2fe] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Granite</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#b91c1c', 'Exposed Brick')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Exposed Brick">
+                                            <span class="w-6 h-6 rounded-md bg-[#b91c1c] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Brick</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#94a3b8', 'R.C.C Concrete')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="R.C.C Concrete">
+                                            <span class="w-6 h-6 rounded-md bg-[#94a3b8] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Concrete</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#38bdf8', 'Clear Glazing Glass')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Clear Glazing Glass">
+                                            <span class="w-6 h-6 rounded-md bg-[#38bdf8] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Glass</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#86efac', 'Lawn Turf')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Lawn Turf">
+                                            <span class="w-6 h-6 rounded-md bg-[#86efac] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Grass</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#475569', 'Dark Charcoal Slate')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Dark Charcoal Slate">
+                                            <span class="w-6 h-6 rounded-md bg-[#475569] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Slate</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Architectural Components -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center border-b border-slate-100 pb-2">
+                                        <i class="fa-solid fa-cubes text-emerald-600 mr-1.5"></i> Add 3D Components
+                                    </h4>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onclick="addWebCADComponent('door')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-door-open text-amber-700"></i>
+                                            <span>+ Door</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('window')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-table-cells-large text-cyan-500"></i>
+                                            <span>+ Window</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('column')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-monument text-slate-500"></i>
+                                            <span>+ Column</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('bed')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-bed text-blue-500"></i>
+                                            <span>+ King Bed</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- TAB 1: BIM ARCHITECTURAL CONSTRUCTION SHEET -->
-                    <div id="showcaseTabSheet" class="p-6 sm:p-8 space-y-6">
+                    <div id="showcaseTabSheet" class="p-6 sm:p-8 space-y-6 hidden">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                             <div>
                                 <div class="text-xs font-bold text-blue-600 uppercase tracking-wider">Sheet Title Block</div>
@@ -625,7 +949,7 @@
                                     <text x="25" y="160" fill="#94a3b8" font-size="9" font-family="sans-serif">Witness lines perpendicular to angled wall face</text>
                                 </svg>
                                 <p class="text-xs text-slate-400 leading-relaxed">
-                                    Unlike standard plugins that default to X/Y chords, AAI DIM dynamically computes the wall normal vector and produces true aligned dimensions.
+                                    Unlike standard plugins that default to X/Y chords, AAI 3D dynamically computes the wall normal vector and produces true aligned dimensions.
                                 </p>
                             </div>
 
@@ -1114,7 +1438,7 @@
                         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                             <div>
                                 <h3 class="font-bold text-slate-900 text-lg">Plugin Releases & Version Distribution</h3>
-                                <p class="text-xs text-slate-500">Upload new .zip installers to D:\AAI DIM\Releases. Active customers can immediately download updates.</p>
+                                <p class="text-xs text-slate-500">Upload new .zip installers to D:\AAI 3D\Releases. Active customers can immediately download updates.</p>
                             </div>
                             <button onclick="openUploadReleaseModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition">
                                 <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Upload New Version
@@ -1164,7 +1488,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Product Title</label>
-                                <input type="text" id="setProdName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="AAI DIM">
+                                <input type="text" id="setProdName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="AAI 3D">
                             </div>
                         </div>
 
@@ -1221,7 +1545,7 @@
             <div class="flex items-center space-x-3">
                 <img src="/assets/logo.png" alt="AAI Logo" class="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-sm border border-slate-700">
                 <div>
-                    <span class="font-bold text-white text-sm">AAI DIM</span>
+                    <span class="font-bold text-white text-sm">AAI 3D</span>
                     <span class="text-slate-400"> • Commercial Subscription Licensing Platform</span>
                 </div>
             </div>
@@ -1440,7 +1764,7 @@
                     <textarea id="relNotes" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" placeholder="What's new in this release..."></textarea>
                 </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm shadow transition">
-                    Publish Version to D:\AAI DIM\Releases
+                    Publish Version to D:\AAI 3D\Releases
                 </button>
             </form>
         </div>

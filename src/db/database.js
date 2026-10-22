@@ -12,7 +12,7 @@ if (!fs.existsSync(dbDir)) {
 const dbPath = path.join(dbDir, 'licensing.db');
 const db = new Database(dbPath);
 
-// Enable foreign keys and Write-Ahead Logging for high concurrency & durability
+// Enable foreign keys and Write-Ahead Logging
 db.pragma('foreign_keys = ON');
 db.pragma('journal_mode = WAL');
 
@@ -72,8 +72,8 @@ function initSchema() {
             id TEXT PRIMARY KEY,
             version_number TEXT NOT NULL UNIQUE,
             release_date TEXT NOT NULL,
-            min_revit_version TEXT NOT NULL DEFAULT '2024',
-            max_revit_version TEXT NOT NULL DEFAULT '2027+',
+            min_revit_version TEXT NOT NULL DEFAULT 'Win10+',
+            max_revit_version TEXT NOT NULL DEFAULT 'Win11',
             file_path TEXT NOT NULL,
             file_name TEXT NOT NULL,
             file_size_bytes INTEGER NOT NULL,
@@ -98,109 +98,130 @@ function initSchema() {
             id TEXT PRIMARY KEY,
             user_id TEXT,
             customer_email TEXT NOT NULL,
+            customer_name TEXT,
             plan_code TEXT NOT NULL,
-            duration_months INTEGER NOT NULL,
-            price_inr REAL NOT NULL,
-            request_type TEXT NOT NULL,
-            terms_snapshot TEXT,
-            status TEXT NOT NULL DEFAULT 'EMAIL_PREPARED',
-            created_at TEXT NOT NULL
+            term_months INTEGER NOT NULL,
+            amount_inr REAL NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
     `);
 
-    // Seed Default Settings if not present
+    seedDefaultData();
+}
+
+function seedDefaultData() {
     const now = new Date().toISOString();
+
+    // 1. Seed Pricing Plans (with 30% higher duration discount & 5% renewal discount)
+    const plans = [
+        {
+            id: 'monthly',
+            name: 'Monthly Professional',
+            duration_months: 1,
+            new_customer_price_inr: 2999.00,
+            renewal_price_inr: 2849.00, // 5% renewal discount
+            description: 'Full access to AAI 3D Desktop Modeler, SketchUp Push/Pull editing, Revit drafting & Vastu Engine.',
+            terms: 'Billed monthly. Cancel anytime.'
+        },
+        {
+            id: 'quarterly',
+            name: 'Quarterly Commercial (3 Months)',
+            duration_months: 3,
+            new_customer_price_inr: 6299.00, // ~30% discount
+            renewal_price_inr: 5984.00,
+            description: 'Includes priority updates, multi-sheet vector PDF exports, and IFC 4.3 BIM export.',
+            terms: 'Billed every 3 months.'
+        },
+        {
+            id: 'half_yearly',
+            name: 'Half-Yearly Studio (6 Months)',
+            duration_months: 6,
+            new_customer_price_inr: 12599.00, // ~30% discount
+            renewal_price_inr: 11969.00,
+            description: 'Comprehensive architectural studio license for practice design workflows.',
+            terms: 'Billed every 6 months.'
+        },
+        {
+            id: 'yearly',
+            name: 'Annual Enterprise (12 Months)',
+            duration_months: 12,
+            new_customer_price_inr: 20999.00, // Maximum value tier
+            renewal_price_inr: 19949.00,
+            description: 'Full commercial license with direct developer support via WhatsApp and custom family templates.',
+            terms: 'Billed annually.'
+        }
+    ];
+
+    const insertPlan = db.prepare(`
+        INSERT INTO pricing_plans (id, name, duration_months, new_customer_price_inr, renewal_price_inr, description, terms, updated_at)
+        VALUES (@id, @name, @duration_months, @new_customer_price_inr, @renewal_price_inr, @description, @terms, @updated_at)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            duration_months = excluded.duration_months,
+            new_customer_price_inr = excluded.new_customer_price_inr,
+            renewal_price_inr = excluded.renewal_price_inr,
+            description = excluded.description,
+            terms = excluded.terms,
+            updated_at = excluded.updated_at
+    `);
+
+    for (const plan of plans) {
+        insertPlan.run({ ...plan, updated_at: now });
+    }
+
+    // 2. Seed Default Settings
     const defaultSettings = [
+        ['platform_name', 'AAI 3D Licensing & Distribution Platform'],
         ['developer_name', 'Aadesh Navade'],
-        ['developer_email', 'aadeshnavade7@gmail.com'],
-        ['developer_whatsapp', '+91 9341102949'],
-        ['product_name', 'AAI DIM'],
-        ['product_description', 'Autonomous BIM Architectural Dimensioning & Advanced Digital Twin AI Copilot for Autodesk Revit'],
-        ['subscription_terms', 'Subscriptions are billed for the selected calendar duration in INR. Licenses are tied to verified customer accounts and grant full access to all dimensioning features, dynamic auto-updates, and version updates.'],
-        ['refund_policy', 'Please review feature compatibility and test your models with our support team before purchasing. For any queries or custom requirements, contact developer Aadesh Navade prior to payment. Approved licenses are non-transferable once activated.'],
+        ['developer_whatsapp', '+91 93411 02949'],
+        ['whatsapp_url', 'https://wa.me/919341102949'],
         ['default_reauth_days', '7'],
-        ['offline_grace_hours', '72'],
-        ['jwt_secret', crypto.randomBytes(32).toString('hex')]
+        ['offline_grace_hours', '48'],
+        ['duration_discount_percent', '30'],
+        ['renewal_discount_percent', '5'],
+        ['system_currency', 'INR']
     ];
 
     const insertSetting = db.prepare(`
-        INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+        INSERT INTO settings (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `);
 
     for (const [k, v] of defaultSettings) {
         insertSetting.run(k, v, now);
     }
 
-    // Seed Pricing Plans if not present
-    const insertPlan = db.prepare(`
-        INSERT OR IGNORE INTO pricing_plans 
-        (id, name, duration_months, new_customer_price_inr, renewal_price_inr, description, terms, is_enabled, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-    `);
+    // 3. Seed Primary Administrator (Aadesh Navade)
+    const adminEmail = 'aadeshnavade@gmail.com';
+    const passwordHash = bcrypt.hashSync('AdminPassword123!', 10);
 
-    // Real initial plans in INR (can be edited at any time via Admin Portal)
-    insertPlan.run(
-        'monthly',
-        'Monthly Plan',
-        1,
-        1499.00,
-        1199.00,
-        'Full access to all AAI DIM features, AI Assistant, and updates for 1 calendar month.',
-        '1 calendar month subscription with renewal discount for continuing customers.',
-        now
-    );
+    const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+    let masterUserId = existingAdmin ? existingAdmin.id : 'usr_admin_master';
 
-    insertPlan.run(
-        'quarterly',
-        'Quarterly Plan',
-        3,
-        3999.00,
-        3299.00,
-        'Best for active project cycles. 3 calendar months of full access with priority support.',
-        '3 calendar months subscription billed in INR.',
-        now
-    );
-
-    insertPlan.run(
-        'half_yearly',
-        'Half-Yearly Plan',
-        6,
-        6999.00,
-        5799.00,
-        'Maximum value for architectural teams. 6 calendar months of uninterrupted licensing & updates.',
-        '6 calendar months subscription billed in INR with maximum savings.',
-        now
-    );
-
-    // ALWAYS guarantee master admin aadeshnavade7@gmail.com exists with AdminPassword123!
-    const masterEmail = 'aadeshnavade7@gmail.com';
-    const salt = bcrypt.genSaltSync(10);
-    const passwordHash = bcrypt.hashSync('AdminPassword123!', salt);
-    const masterUser = db.prepare('SELECT id, email FROM users WHERE email = ?').get(masterEmail);
-
-    let masterUserId;
-    if (!masterUser) {
-        masterUserId = 'usr_admin_master';
+    if (!existingAdmin) {
         db.prepare(`
             INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
-            VALUES (?, ?, ?, 'Aadesh Navade', 'AAI DIM', 'admin', 1, ?, ?)
-        `).run(masterUserId, masterEmail, passwordHash, now, now);
+            VALUES (?, ?, ?, 'Aadesh Navade', 'Ancient Advanced India', 'super_admin', 1, ?, ?)
+        `).run(masterUserId, adminEmail, passwordHash, now, now);
     } else {
-        masterUserId = masterUser.id;
         db.prepare(`
-            UPDATE users SET password_hash = ?, role = 'admin', is_approved = 1, updated_at = ?
-            WHERE email = ?
-        `).run(passwordHash, now, masterEmail);
+            UPDATE users SET password_hash = ?, role = 'super_admin', is_approved = 1, updated_at = ?
+            WHERE id = ?
+        `).run(passwordHash, now, masterUserId);
     }
 
-    // Ensure 10-year VIP subscription for master admin
     const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 10);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+
     const masterSub = db.prepare('SELECT id FROM subscriptions WHERE user_id = ?').get(masterUserId);
     if (!masterSub) {
         db.prepare(`
             INSERT INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
-            VALUES (?, ?, 'ACTIVE', 'half_yearly', ?, ?, 365, ?, ?)
+            VALUES (?, ?, 'ACTIVE', 'yearly', ?, ?, 365, ?, ?)
         `).run('sub_admin_master', masterUserId, now, expiryDate.toISOString(), now, now);
     } else {
         db.prepare(`
@@ -209,30 +230,16 @@ function initSchema() {
         `).run(expiryDate.toISOString(), now, masterUserId);
     }
 
-    // Also guarantee backup admin account admin@aaidim.com has AdminPassword123!
-    const backupAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@aaidim.com');
-    if (backupAdmin) {
-        db.prepare(`
-            UPDATE users SET password_hash = ?, role = 'admin', is_approved = 1, updated_at = ?
-            WHERE email = 'admin@aaidim.com'
-        `).run(passwordHash, now);
-    } else {
-        db.prepare(`
-            INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
-            VALUES ('usr_admin_backup', 'admin@aaidim.com', ?, 'System Administrator', 'AAI DIM', 'admin', 1, ?, ?)
-        `).run(passwordHash, now, now);
-    }
-
-    // Seed persistent testing and developer customer accounts
+    // Secondary test accounts
     const seedAccounts = [
         {
             email: 'aadeshchess40@gmail.com',
             name: 'Aadesh Navade',
-            company: 'AAI DIM',
+            company: 'AAI 3D',
             role: 'customer',
             isApproved: 1,
             password: 'Password123!',
-            planCode: 'pro_monthly'
+            planCode: 'monthly'
         },
         {
             email: 'testuser@architect.com',
@@ -241,7 +248,7 @@ function initSchema() {
             role: 'customer',
             isApproved: 1,
             password: 'Password123!',
-            planCode: 'pro_monthly'
+            planCode: 'yearly'
         }
     ];
 
@@ -275,32 +282,31 @@ function initSchema() {
         }
     }
 
-    // Seed latest release (v1.1.0) and discard older versions
+    // 4. Seed Latest Release: AAI 3D Setup 1.0.0.exe
     const possibleDirs = [
         path.join(process.cwd(), 'releases'),
         path.join(__dirname, '..', '..', 'releases'),
         path.join(__dirname, '..', '..', '..', 'Releases')
     ];
 
-    let foundZip = null;
-    let foundFileName = 'AAI_DIM_v1.1.0_Setup.zip';
+    let foundInstaller = null;
+    let foundFileName = 'AAI 3D Setup 1.0.0.exe';
     for (const d of possibleDirs) {
         const testPath = path.join(d, foundFileName);
         if (fs.existsSync(testPath)) {
-            foundZip = testPath;
+            foundInstaller = testPath;
             break;
         }
     }
 
-    if (foundZip) {
-        const stats = fs.statSync(foundZip);
-        // Deactivate all older versions so only the latest version is available
-        db.prepare('UPDATE releases SET is_active = 0 WHERE version_number != ?').run('1.1.0');
+    if (foundInstaller) {
+        const stats = fs.statSync(foundInstaller);
+        db.prepare('UPDATE releases SET is_active = 0 WHERE version_number != ?').run('1.0.0');
 
         const upsertRelease = db.prepare(`
             INSERT INTO releases
             (id, version_number, release_date, min_revit_version, max_revit_version, file_path, file_name, file_size_bytes, release_notes, is_active, is_mandatory, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)
+            VALUES (?, ?, ?, 'Win10', 'Win11', ?, ?, ?, ?, 1, 0, ?)
             ON CONFLICT(version_number) DO UPDATE SET
                 file_path = excluded.file_path,
                 file_name = excluded.file_name,
@@ -311,15 +317,13 @@ function initSchema() {
         `);
 
         upsertRelease.run(
-            'rel_v1.1.0',
-            '1.1.0',
+            'rel_v1.0.0',
+            '1.0.0',
             now,
-            '2024',
-            '2027+',
-            foundZip,
+            foundInstaller,
             foundFileName,
             stats.size,
-            'v1.1.0: Added ArchiCAD-style 4-tier progressive hierarchy, customizable 1200mm initial offset and 700mm chain spacing, text collision avoidance with leader staggering, angled wall linear fallback, and Google Gemini Vision AI drawing analysis.',
+            'AAI 3D v1.0.0: Autonomous AI Architectural Modeler with direct on-screen SketchUp-style Push/Pull editing, Revit-style detailing & auto-dimensioning, 9-zone Vastu Shastra engine, and buildingSMART IFC 4.3 export.',
             now
         );
     }

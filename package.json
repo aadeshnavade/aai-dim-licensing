@@ -1,14 +1,20 @@
 {
-  "name": "aai-dim-licensing-platform",
+  "name": "aai-3d-licensing-platform",
   "version": "1.0.0",
-  "description": "AAI DIM Licensing & Subscription Platform for Autodesk Revit",
+  "description": "AAI 3D Autonomous Architectural Modeling & BIM Licensing Platform",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "echo \"No test specified\" && exit 0"
+    "test": "node test/licensing_api.test.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "aai-3d",
+    "bim",
+    "architecture",
+    "licensing",
+    "render"
+  ],
+  "author": "Aadesh Navade",
   "engines": {
     "node": ">=22"
   },

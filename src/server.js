@@ -33,7 +33,7 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'UP',
         timestamp: new Date().toISOString(),
-        service: 'AAI DIM Licensing & Subscription Platform'
+        service: 'AAI 3D Licensing & Subscription Platform'
     });
 });
 

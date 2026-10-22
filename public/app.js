@@ -1086,23 +1086,222 @@ async function loadAdminAuditLogs() {
 }
 
 // ==========================================
+// AADISKETCH 3D WEB STUDIO CONTROLLER
+// ==========================================
+let aadisketchModel = null;
+let aadisketchViewport = null;
+let aadisketchToolManager = null;
+
+function initAadiSketchWeb() {
+    const container = document.getElementById('aadisketchWebContainer');
+    if (!container || aadisketchViewport || !window.AadiSketchWeb || !window.THREE) return;
+
+    try {
+        aadisketchModel = new AadiSketchWeb.SketchUpModel('Web Building Project');
+        aadisketchModel.loadSampleBuilding();
+
+        const statusEl = document.getElementById('aadisketchStatusPrompt');
+        const measureLabelEl = document.getElementById('aadisketchMeasureLabel');
+        const measureValEl = document.getElementById('aadisketchMeasureVal');
+        const viewCubeBox = document.getElementById('aadisketchViewCubeBox');
+
+        const onStatus = (msg) => {
+            if (statusEl) statusEl.textContent = msg;
+        };
+
+        const onMeasure = (label, val) => {
+            if (measureLabelEl) measureLabelEl.textContent = label ? label + ':' : 'Measurements:';
+            if (measureValEl) measureValEl.value = val;
+        };
+
+        const onViewAngleChange = (degX, degY) => {
+            if (viewCubeBox) {
+                viewCubeBox.style.transform = `rotateX(${-degX}deg) rotateZ(${degY}deg)`;
+            }
+        };
+
+        const onSelect = (type, entity) => {
+            const infoType = document.getElementById('traySelectedType');
+            const infoArea = document.getElementById('traySelectedArea');
+            const infoNormal = document.getElementById('traySelectedNormal');
+            if (!type || !entity) {
+                if (infoType) infoType.textContent = 'None';
+                if (infoArea) infoArea.textContent = '—';
+                if (infoNormal) infoNormal.textContent = '—';
+                return;
+            }
+            if (infoType) infoType.textContent = type === 'face' ? 'Face (Surface)' : 'Edge';
+            if (infoArea) infoArea.textContent = entity.area ? `${entity.area} sq m` : '—';
+            if (infoNormal && entity.normal) {
+                infoNormal.textContent = `(${entity.normal.x.toFixed(2)}, ${entity.normal.y.toFixed(2)}, ${entity.normal.z.toFixed(2)})`;
+            }
+        };
+
+        aadisketchViewport = new AadiSketchWeb.SketchUpViewport(container, onSelect, (action, e, hit) => {
+            if (aadisketchToolManager) aadisketchToolManager.handleAction(action, e, hit);
+        }, onViewAngleChange);
+
+        aadisketchViewport.setModel(aadisketchModel);
+        aadisketchToolManager = new AadiSketchWeb.ToolManager(aadisketchModel, aadisketchViewport, onStatus, onMeasure);
+
+        // ViewCube click handlers
+        const cubeFaces = document.querySelectorAll('#aadisketchViewCubeBox .cube-face');
+        cubeFaces.forEach(f => {
+            f.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const v = f.getAttribute('data-view');
+                if (v && aadisketchViewport) aadisketchViewport.setStandardView(v);
+            });
+        });
+
+        const cubeHome = document.getElementById('aadisketchCubeHome');
+        if (cubeHome) {
+            cubeHome.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (aadisketchViewport) aadisketchViewport.setStandardView('iso');
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            if (aadisketchViewport) aadisketchViewport.onResize();
+        });
+
+        if (measureValEl) {
+            measureValEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    aadisketchToolManager.applyTypedInput(measureValEl.value);
+                }
+            });
+        }
+
+        // Global keyboard tool shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (['input', 'textarea'].includes(document.activeElement?.tagName?.toLowerCase())) return;
+            const k = e.key.toLowerCase();
+            if (k === ' ') { e.preventDefault(); setWebCADTool('select'); }
+            else if (k === 'p') setWebCADTool('pushpull');
+            else if (k === 'l') setWebCADTool('line');
+            else if (k === 'r') setWebCADTool('rectangle');
+            else if (k === 'c') setWebCADTool('circle');
+            else if (k === 'e') setWebCADTool('eraser');
+            else if (k === 'b') setWebCADTool('paint');
+            else if (e.ctrlKey && k === 'z') { e.preventDefault(); undoWebCAD(); }
+            else if (e.ctrlKey && k === 'y') { e.preventDefault(); redoWebCAD(); }
+        });
+
+        window.aadisketchViewport = aadisketchViewport;
+        window.aadisketchToolManager = aadisketchToolManager;
+        window.aadisketchModel = aadisketchModel;
+        console.log('[AadiSketch] Web Modeler Studio successfully initialized.');
+    } catch (err) {
+        console.error('[AadiSketch] Init failed:', err);
+    }
+}
+
+function setWebCADTool(toolName) {
+    if (!aadisketchToolManager) return;
+    aadisketchToolManager.setTool(toolName);
+    const toolBtns = document.querySelectorAll('.web-cad-tool-btn');
+    toolBtns.forEach(btn => {
+        if (btn.getAttribute('data-tool') === toolName) {
+            btn.className = 'web-cad-tool-btn bg-blue-600 text-white shadow-md px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center';
+        } else {
+            btn.className = 'web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300';
+        }
+    });
+}
+
+function setWebStandardView(view) {
+    if (aadisketchViewport) aadisketchViewport.setStandardView(view);
+}
+
+function setWebCADMaterial(color, name) {
+    if (!aadisketchToolManager) return;
+    aadisketchToolManager.activeMaterial = { color, name };
+    const nameEl = document.getElementById('trayActiveMatName');
+    if (nameEl) nameEl.textContent = name;
+    aadisketchToolManager.onStatus(`Active Paint Material: ${name}`);
+}
+
+function addWebCADComponent(type) {
+    if (!aadisketchModel || !aadisketchViewport) return;
+    if (type === 'door') {
+        const d = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(5, -0.05, 0), new AadiSketchWeb.Point3D(6.1, 0.05, 0), 0, { color: '#92400e', name: 'Wood Door' });
+        aadisketchModel.pushPullFace(d.id, 2.1);
+    } else if (type === 'window') {
+        const w = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(9.5, -0.05, 0.9), new AadiSketchWeb.Point3D(11.5, 0.05, 0.9), 0.9, { color: '#38bdf8', name: 'Glazing' });
+        aadisketchModel.pushPullFace(w.id, 1.3);
+    } else if (type === 'column') {
+        const c = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(4, 4, 0), new AadiSketchWeb.Point3D(4.5, 4.5, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
+        aadisketchModel.pushPullFace(c.id, 3.2);
+    } else if (type === 'bed') {
+        const b = aadisketchModel.createRectangle(new AadiSketchWeb.Point3D(10, 2, 0), new AadiSketchWeb.Point3D(13, 4, 0), 0, { color: '#3b82f6', name: 'King Bed' });
+        aadisketchModel.pushPullFace(b.id, 0.6);
+    }
+    aadisketchViewport.rebuildScene();
+    if (aadisketchToolManager) aadisketchToolManager.onStatus(`Added 3D ${type} component.`);
+}
+
+function resetWebCADSample() {
+    if (!aadisketchModel || !aadisketchViewport) return;
+    aadisketchModel.loadSampleBuilding();
+    aadisketchViewport.rebuildScene();
+    aadisketchViewport.setStandardView('iso');
+    if (aadisketchToolManager) aadisketchToolManager.onStatus('Loaded complete 3D architectural sample house.');
+}
+
+function clearWebCADModel() {
+    if (!aadisketchModel || !aadisketchViewport) return;
+    aadisketchModel.faces = [];
+    aadisketchModel.edges = [];
+    aadisketchViewport.rebuildScene();
+    if (aadisketchToolManager) aadisketchToolManager.onStatus('Canvas cleared. Click Rectangle or Line to start drafting.');
+}
+
+function undoWebCAD() {
+    if (!aadisketchModel || !aadisketchViewport) return;
+    if (aadisketchModel.undo()) {
+        aadisketchViewport.rebuildScene();
+        if (aadisketchToolManager) aadisketchToolManager.onStatus('Undo action completed.');
+    }
+}
+
+function redoWebCAD() {
+    if (!aadisketchModel || !aadisketchViewport) return;
+    if (aadisketchModel.redo()) {
+        aadisketchViewport.rebuildScene();
+        if (aadisketchToolManager) aadisketchToolManager.onStatus('Redo action completed.');
+    }
+}
+
+function switchToAadiSketchTab() {
+    showView('pricing');
+    switchShowcaseTab('aadisketch');
+    setTimeout(() => {
+        const el = document.getElementById('aadisketchStudioSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        if (aadisketchViewport) aadisketchViewport.onResize();
+    }, 120);
+}
+
+// ==========================================
 // BIM SHOWCASE TABS CONTROLLER
 // ==========================================
 function switchShowcaseTab(tabKey) {
-    const tabs = ['sheet', 'digitaltwin', 'aligned', 'copilot'];
+    const tabs = ['aadisketch', 'sheet', 'digitaltwin', 'copilot'];
     tabs.forEach(t => {
         const content = document.getElementById(`showcaseTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
         if (content) content.classList.add('hidden');
     });
 
     const activeMap = {
-        sheet: { id: 'showcaseTabSheet', btn: 'showcaseTab1Btn' },
-        digitaltwin: { id: 'showcaseTabDigitalTwin', btn: 'showcaseTab2Btn' },
-        aligned: { id: 'showcaseTabAligned', btn: 'showcaseTab3Btn' },
+        aadisketch: { id: 'showcaseTabAadisketch', btn: 'showcaseTab1Btn' },
+        sheet: { id: 'showcaseTabSheet', btn: 'showcaseTab2Btn' },
+        digitaltwin: { id: 'showcaseTabDigitalTwin', btn: 'showcaseTab3Btn' },
         copilot: { id: 'showcaseTabCopilot', btn: 'showcaseTab4Btn' }
     };
 
-    const target = activeMap[tabKey] || activeMap.sheet;
+    const target = activeMap[tabKey] || activeMap.aadisketch;
     const targetContent = document.getElementById(target.id);
     if (targetContent) targetContent.classList.remove('hidden');
 
@@ -1117,6 +1316,14 @@ function switchShowcaseTab(tabKey) {
     const activeBtn = document.getElementById(target.btn);
     if (activeBtn) {
         activeBtn.className = 'tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm bg-blue-600 text-white flex items-center space-x-2';
+    }
+
+    if (tabKey === 'aadisketch') {
+        if (!aadisketchViewport) {
+            initAadiSketchWeb();
+        } else {
+            setTimeout(() => aadisketchViewport.onResize(), 50);
+        }
     }
 }
 
@@ -1626,5 +1833,6 @@ document.addEventListener('click', (e) => {
 window.addEventListener('DOMContentLoaded', () => {
     loadPublicPricing();
     new BimCanvasAnimation('bimBackgroundCanvas');
+    initAadiSketchWeb();
 });
 
