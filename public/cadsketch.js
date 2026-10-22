@@ -1,18 +1,30 @@
 /**
- * AadiSketch Web Engine — Pure Google SketchUp Architecture in Browser
- * Fully interactive 3D WebGL B-Rep Modeler
- * - Revit Mouse Navigation (MMB: Pan, Shift+MMB: Orbit, Wheel: Zoom, LMB: Tool Interaction)
- * - Push/Pull Live 3D Extrusion
- * - Line, Rectangle, Circle, Offset, Eraser, Paint, Section Planes
- * - Real-time 3D ViewCube in the top-right corner
- * - Iconic Measurements box with live feedback and keyboard input
+ * CADSketch Engine & Application Controller
+ * Pure Google SketchUp Architecture in WebGL
+ * Developer: Aadesh Navade (+91 93411 02949)
+ *
+ * Core Capabilities:
+ * - 100% Google SketchUp Look & Feel
+ * - Interactive 3D ViewCube HUD with Compass (Clickable Top, Front, Right, Back, Left, Bottom, Home)
+ * - Push/Pull 3D Dynamic Surface Extrusion with Live Prism Preview
+ * - Real-time Axis Snapping (Red/Green/Blue) & Vertex/Midpoint Inference Engine
+ * - Line, Rectangle, Circle, Arc, Offset, Move, Rotate, Scale, Tape Measure, Dimension, Eraser, Paint Bucket
+ * - Autodesk Revit Mouse Navigation:
+ *     - Orbit: Right-Click Drag OR Shift + Middle-Click Drag
+ *     - Pan: Middle-Click Drag OR Alt + Left-Click Drag
+ *     - Zoom: Mouse Scroll Wheel
+ * - 3D Architectural Components: Detailed Doors, Windows, Stairs, Kitchen, Beds, Columns, Scale Figure
+ * - 30+ Architectural Materials with Swatches
+ * - Section Plane Cutting Tool with Real-time GPU Clipping Planes
+ * - Live Measurements Box (VCB) with Direct Numeric Keyboard Input
+ * - Wavefront 3D OBJ & JSON Project Exporters
  */
 
 (function(window) {
   'use strict';
 
   // ==========================================
-  // 1. GEOMETRIC CORE (B-REP)
+  // 1. MATHEMATICAL GEOMETRY CORE (B-REP)
   // ==========================================
 
   class Point3D {
@@ -42,13 +54,15 @@
     equals(p, tol = 1e-4) {
       return Math.abs(this.x - p.x) <= tol && Math.abs(this.y - p.y) <= tol && Math.abs(this.z - p.z) <= tol;
     }
+    toArray() { return [this.x, this.y, this.z]; }
   }
 
   class Edge {
-    constructor(id, startPoint, endPoint) {
+    constructor(id, startPoint, endPoint, isGuide = false) {
       this.id = id;
       this.start = startPoint.clone();
       this.end = endPoint.clone();
+      this.isGuide = isGuide;
     }
     length() { return this.start.distanceTo(this.end); }
     midpoint() {
@@ -60,7 +74,7 @@
     constructor(id, points = [], material = null) {
       this.id = id;
       this.points = points.map(p => p.clone());
-      this.material = material || { color: '#ffffff', name: 'Default Material' };
+      this.material = material || { color: '#ffffff', name: 'CADSketch Default White' };
       this.normal = this.computeNormal();
       this.area = this.computeArea();
       this.edgeIds = [];
@@ -94,53 +108,80 @@
     }
   }
 
-  class SketchUpModel {
-    constructor(name = 'AadiSketch Model') {
+  class SectionPlane {
+    constructor(id, position, normal = new Point3D(0, 0, -1), name = 'Section 1') {
+      this.id = id;
+      this.position = position.clone();
+      this.normal = normal.normalize();
       this.name = name;
-      this.units = 'ft';
+      this.active = true;
+    }
+  }
+
+  class DimensionString {
+    constructor(id, p1, p2, text = '', offset = 0.5) {
+      this.id = id;
+      this.p1 = p1.clone();
+      this.p2 = p2.clone();
+      this.offset = offset;
+      this.length = p1.distanceTo(p2);
+      this.text = text || `${this.length.toFixed(2)}`;
+    }
+  }
+
+  // ==========================================
+  // 2. CADSKETCH MODEL CONTAINER
+  // ==========================================
+
+  class CADSketchModel {
+    constructor(name = 'Modern Architectural House') {
+      this.name = name;
+      this.units = 'm';
       this.faces = [];
       this.edges = [];
       this.sectionPlanes = [];
+      this.dimensions = [];
       this.displaySectionCuts = true;
+      this.displaySectionPlanes = true;
       this.idCounter = 1;
       this.undoStack = [];
       this.redoStack = [];
     }
 
-    nextId(p = 'ent') { return `${p}_${this.idCounter++}`; }
+    nextId(prefix = 'entity') { return `${prefix}_${this.idCounter++}`; }
 
-    saveSnapshot(action = 'Edit') {
+    saveSnapshot(actionName = 'Edit') {
       const state = JSON.stringify(this.serialize());
-      this.undoStack.push({ action, state });
-      if (this.undoStack.length > 40) this.undoStack.shift();
+      this.undoStack.push({ action: actionName, state });
+      if (this.undoStack.length > 50) this.undoStack.shift();
       this.redoStack = [];
     }
 
     undo() {
       if (this.undoStack.length === 0) return false;
-      const cur = JSON.stringify(this.serialize());
-      const prev = this.undoStack.pop();
-      this.redoStack.push({ action: prev.action, state: cur });
-      this.deserialize(JSON.parse(prev.state));
+      const currentState = JSON.stringify(this.serialize());
+      const previous = this.undoStack.pop();
+      this.redoStack.push({ action: previous.action, state: currentState });
+      this.deserialize(JSON.parse(previous.state));
       return true;
     }
 
     redo() {
       if (this.redoStack.length === 0) return false;
-      const cur = JSON.stringify(this.serialize());
+      const currentState = JSON.stringify(this.serialize());
       const next = this.redoStack.pop();
-      this.undoStack.push({ action: next.action, state: cur });
+      this.undoStack.push({ action: next.action, state: currentState });
       this.deserialize(JSON.parse(next.state));
       return true;
     }
 
-    addEdge(p1, p2) {
-      for (const e of this.edges) {
-        if ((e.start.equals(p1) && e.end.equals(p2)) || (e.start.equals(p2) && e.end.equals(p1))) {
-          return e;
+    addEdge(p1, p2, isGuide = false) {
+      for (const edge of this.edges) {
+        if ((edge.start.equals(p1) && edge.end.equals(p2)) || (edge.start.equals(p2) && edge.end.equals(p1))) {
+          return edge;
         }
       }
-      const edge = new Edge(this.nextId('edge'), p1, p2);
+      const edge = new Edge(this.nextId('edge'), p1, p2, isGuide);
       this.edges.push(edge);
       return edge;
     }
@@ -157,26 +198,23 @@
       return face;
     }
 
-    /**
-     * THE ICONIC PUSH/PULL SOLID PRISM EXTRUSION
-     */
     pushPullFace(faceId, distance) {
       const face = this.faces.find(f => f.id === faceId);
       if (!face || Math.abs(distance) < 1e-4) return null;
 
-      this.saveSnapshot(`Push/Pull Face (${distance.toFixed(2)}m)`);
+      this.saveSnapshot(`Push/Pull Face (${distance.toFixed(2)})`);
       const normal = face.normal;
-      const offset = normal.multiplyScalar(distance);
+      const offsetVector = normal.multiplyScalar(distance);
       const n = face.points.length;
-      const newTopPoints = face.points.map(p => p.add(offset));
+      const newTopPoints = face.points.map(p => p.add(offsetVector));
 
       const sideFaces = [];
       for (let i = 0; i < n; i++) {
-        const next = (i + 1) % n;
+        const nextIdx = (i + 1) % n;
         const b1 = face.points[i];
-        const b2 = face.points[next];
+        const b2 = face.points[nextIdx];
         const t1 = newTopPoints[i];
-        const t2 = newTopPoints[next];
+        const t2 = newTopPoints[nextIdx];
         const sideFace = this.addFace([b1, b2, t2, t1], face.material);
         sideFaces.push(sideFace);
       }
@@ -213,7 +251,7 @@
     offsetFace(faceId, distance) {
       const face = this.faces.find(f => f.id === faceId);
       if (!face || Math.abs(distance) < 1e-4) return null;
-      this.saveSnapshot('Offset Face');
+      this.saveSnapshot(`Offset Face (${distance})`);
 
       const pts = face.points;
       const n = pts.length;
@@ -238,66 +276,6 @@
       return this.addFace(offsetPts, face.material);
     }
 
-    loadSampleBuilding() {
-      this.faces = [];
-      this.edges = [];
-      this.idCounter = 1;
-
-      // Base Ground Floor Foundation Slab
-      const slab = this.createRectangle(new Point3D(-1, -1, 0), new Point3D(16, 12, 0), 0, { color: '#cbd5e1', name: 'Foundation Slab', roughness: 0.8 });
-      this.pushPullFace(slab.id, -0.4);
-
-      // Living Room Floor
-      this.createRectangle(new Point3D(0, 0, 0), new Point3D(8, 7, 0), 0, { color: '#f8fafc', name: 'Living Room (Polished)' });
-      // Master Bedroom Floor
-      this.createRectangle(new Point3D(8, 0, 0), new Point3D(15, 6, 0), 0, { color: '#fef3c7', name: 'Master Bed (Hardwood)' });
-      // Kitchen Floor
-      this.createRectangle(new Point3D(8, 6, 0), new Point3D(15, 11, 0), 0, { color: '#e0f2fe', name: 'Modular Kitchen (Granite)' });
-      // Dining / Foyer Floor
-      this.createRectangle(new Point3D(0, 7, 0), new Point3D(8, 11, 0), 0, { color: '#ede9fe', name: 'Dining Room Floor' });
-
-      // Exterior Perimeter Walls
-      // South Wall
-      const w1 = this.createRectangle(new Point3D(0, -0.3, 0), new Point3D(15, 0, 0), 0, { color: '#f1f5f9', name: 'Wall Plaster' });
-      this.pushPullFace(w1.id, 3.2);
-
-      // North Wall
-      const w2 = this.createRectangle(new Point3D(0, 11, 0), new Point3D(15, 11.3, 0), 0, { color: '#f1f5f9', name: 'Wall Plaster' });
-      this.pushPullFace(w2.id, 3.2);
-
-      // West Wall
-      const w3 = this.createRectangle(new Point3D(-0.3, -0.3, 0), new Point3D(0, 11.3, 0), 0, { color: '#f1f5f9', name: 'Wall Plaster' });
-      this.pushPullFace(w3.id, 3.2);
-
-      // East Wall
-      const w4 = this.createRectangle(new Point3D(15, -0.3, 0), new Point3D(15.3, 11.3, 0), 0, { color: '#f1f5f9', name: 'Wall Plaster' });
-      this.pushPullFace(w4.id, 3.2);
-
-      // Interior Partitions
-      const part1 = this.createRectangle(new Point3D(7.85, 0, 0), new Point3D(8.15, 11, 0), 0, { color: '#e2e8f0', name: 'Interior Wall' });
-      this.pushPullFace(part1.id, 3.0);
-
-      const part2 = this.createRectangle(new Point3D(8.15, 5.85, 0), new Point3D(15, 6.15, 0), 0, { color: '#e2e8f0', name: 'Kitchen Wall' });
-      this.pushPullFace(part2.id, 3.0);
-
-      // 3D Teak Wood Main Door
-      const door = this.createRectangle(new Point3D(3.2, -0.05, 0), new Point3D(4.3, 0.05, 0), 0, { color: '#92400e', name: 'Teak Main Door' });
-      this.pushPullFace(door.id, 2.2);
-
-      // 3D Clear Glazing Picture Window
-      const win = this.createRectangle(new Point3D(1.0, -0.05, 0.9), new Point3D(2.8, 0.05, 0.9), 0.9, { color: '#38bdf8', name: 'Double Glazed Window' });
-      this.pushPullFace(win.id, 1.4);
-
-      // Portico Columns
-      const col1 = this.createRectangle(new Point3D(-0.8, -0.8, 0), new Point3D(-0.3, -0.3, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
-      this.pushPullFace(col1.id, 3.4);
-
-      const col2 = this.createRectangle(new Point3D(15.3, -0.8, 0), new Point3D(15.8, -0.3, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
-      this.pushPullFace(col2.id, 3.4);
-
-      return this;
-    }
-
     deleteFace(faceId) {
       const idx = this.faces.findIndex(f => f.id === faceId);
       if (idx === -1) return false;
@@ -306,10 +284,85 @@
       return true;
     }
 
+    eraseEdge(edgeId) {
+      const idx = this.edges.findIndex(e => e.id === edgeId);
+      if (idx === -1) return false;
+      this.saveSnapshot('Erase Edge');
+      this.edges.splice(idx, 1);
+      this.faces = this.faces.filter(f => !f.edgeIds.includes(edgeId));
+      return true;
+    }
+
+    addSectionPlane(pos, normal = new Point3D(0, 0, -1)) {
+      this.saveSnapshot('Add Section Plane');
+      const sp = new SectionPlane(this.nextId('section'), pos, normal, `Section ${this.sectionPlanes.length + 1}`);
+      this.sectionPlanes.push(sp);
+      return sp;
+    }
+
+    loadSampleBuilding() {
+      this.faces = [];
+      this.edges = [];
+      this.dimensions = [];
+      this.sectionPlanes = [];
+      this.idCounter = 1;
+
+      // Foundation Slab
+      const slab = this.createRectangle(new Point3D(-1, -1, 0), new Point3D(16, 12, 0), 0, { color: '#94a3b8', name: 'Foundation Slab', roughness: 0.8 });
+      this.pushPullFace(slab.id, -0.4);
+
+      // Flooring
+      this.createRectangle(new Point3D(0, 0, 0), new Point3D(8, 7, 0), 0, { color: '#f8fafc', name: 'Living Room Flooring' });
+      this.createRectangle(new Point3D(8, 0, 0), new Point3D(15, 6, 0), 0, { color: '#d97706', name: 'Master Bed Oak' });
+      this.createRectangle(new Point3D(8, 6, 0), new Point3D(15, 11, 0), 0, { color: '#18181b', name: 'Kitchen Granite' });
+      this.createRectangle(new Point3D(0, 7, 0), new Point3D(8, 11, 0), 0, { color: '#334155', name: 'Dining Slate' });
+
+      // Perimeter Walls
+      const w1 = this.createRectangle(new Point3D(0, -0.28, 0), new Point3D(15, 0, 0), 0, { color: '#f1f5f9', name: 'Exterior Wall' });
+      this.pushPullFace(w1.id, 3.2);
+
+      const w2 = this.createRectangle(new Point3D(0, 11, 0), new Point3D(15, 11.28, 0), 0, { color: '#f1f5f9', name: 'Exterior Wall' });
+      this.pushPullFace(w2.id, 3.2);
+
+      const w3 = this.createRectangle(new Point3D(-0.28, -0.28, 0), new Point3D(0, 11.28, 0), 0, { color: '#f1f5f9', name: 'Exterior Wall' });
+      this.pushPullFace(w3.id, 3.2);
+
+      const w4 = this.createRectangle(new Point3D(15, -0.28, 0), new Point3D(15.28, 11.28, 0), 0, { color: '#f1f5f9', name: 'Exterior Wall' });
+      this.pushPullFace(w4.id, 3.2);
+
+      // Interior Partitions
+      const p1 = this.createRectangle(new Point3D(7.88, 0, 0), new Point3D(8.12, 11, 0), 0, { color: '#e2e8f0', name: 'Interior Wall' });
+      this.pushPullFace(p1.id, 3.0);
+
+      const p2 = this.createRectangle(new Point3D(8.12, 5.88, 0), new Point3D(15, 6.12, 0), 0, { color: '#e2e8f0', name: 'Interior Wall' });
+      this.pushPullFace(p2.id, 3.0);
+
+      // 3D Door Assembly
+      CADSketchComponents.insertDoor(this, new Point3D(3.2, 0, 0), 1.0, 2.2);
+
+      // 3D Window Assembly
+      CADSketchComponents.insertWindow(this, new Point3D(1.0, 0, 0), 1.8, 1.4, 0.9);
+
+      // Portico Columns
+      const col1 = this.createRectangle(new Point3D(-0.8, -0.8, 0), new Point3D(-0.3, -0.3, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
+      this.pushPullFace(col1.id, 3.4);
+
+      const col2 = this.createRectangle(new Point3D(15.3, -0.8, 0), new Point3D(15.8, -0.3, 0), 0, { color: '#94a3b8', name: 'R.C.C Column' });
+      this.pushPullFace(col2.id, 3.4);
+
+      // Human Scale Figure ("Susan")
+      CADSketchComponents.insertScaleFigure(this, new Point3D(2, 2, 0));
+
+      return this;
+    }
+
     serialize() {
       return {
+        name: this.name,
+        units: this.units,
         faces: this.faces.map(f => ({ id: f.id, points: f.points.map(p => [p.x, p.y, p.z]), material: f.material })),
-        edges: this.edges.map(e => ({ id: e.id, start: [e.start.x, e.start.y, e.start.z], end: [e.end.x, e.end.y, e.end.z] }))
+        edges: this.edges.map(e => ({ id: e.id, start: [e.start.x, e.start.y, e.start.z], end: [e.end.x, e.end.y, e.end.z] })),
+        sectionPlanes: this.sectionPlanes.map(sp => ({ id: sp.id, pos: [sp.position.x, sp.position.y, sp.position.z], active: sp.active }))
       };
     }
 
@@ -324,39 +377,122 @@
   }
 
   // ==========================================
-  // 2. INFERENCE ENGINE (AXIS SNAPPING)
+  // 3. MATERIALS PALETTE
+  // ==========================================
+
+  const CADSKETCH_MATERIALS = {
+    color_white: { name: 'CADSketch Pure White', color: '#f8fafc', category: 'Colors', roughness: 0.8 },
+    color_charcoal: { name: 'Dark Charcoal Slate', color: '#1e293b', category: 'Colors', roughness: 0.7 },
+    color_crimson: { name: 'Crimson Red', color: '#b91c1c', category: 'Colors', roughness: 0.6 },
+    color_warm_cream: { name: 'Warm Cream Plaster', color: '#fef3c7', category: 'Colors', roughness: 0.8 },
+    color_sky: { name: 'SketchUp Sky Blue', color: '#38bdf8', category: 'Colors', roughness: 0.5 },
+    brick_red: { name: 'Standard Red Brick', color: '#991b1b', category: 'Brick & Cladding', roughness: 0.9 },
+    brick_antique: { name: 'Antique Brown Brick', color: '#7c2d12', category: 'Brick & Cladding', roughness: 0.92 },
+    concrete_block: { name: 'Concrete Block Masonry', color: '#94a3b8', category: 'Brick & Cladding', roughness: 0.88 },
+    wood_teak: { name: 'Natural Teak Wood', color: '#78350f', category: 'Wood', roughness: 0.4 },
+    wood_oak: { name: 'Light White Oak', color: '#d97706', category: 'Wood', roughness: 0.45 },
+    wood_walnut: { name: 'Dark Walnut Plank', color: '#451a03', category: 'Wood', roughness: 0.38 },
+    glass_float: { name: 'Translucent Float Glass', color: '#a5f3fc', category: 'Glass & Mirrors', transparent: true, opacity: 0.35 },
+    glass_blue: { name: 'Tinted Blue Glass', color: '#0284c7', category: 'Glass & Mirrors', transparent: true, opacity: 0.45 },
+    stone_granite: { name: 'Black Pearl Granite', color: '#18181b', category: 'Stone & Tile', roughness: 0.15 },
+    stone_marble: { name: 'Carrara White Marble', color: '#f1f5f9', category: 'Stone & Tile', roughness: 0.2 },
+    tile_slate: { name: 'Dark Slate Paver', color: '#334155', category: 'Stone & Tile', roughness: 0.7 },
+    metal_steel: { name: 'Brushed Stainless Steel', color: '#cbd5e1', category: 'Metal', metalness: 0.85, roughness: 0.25 },
+    metal_brass: { name: 'Satin Architectural Brass', color: '#eab308', category: 'Metal', metalness: 0.8, roughness: 0.3 },
+    lawn_grass: { name: 'Lush Green Lawn Grass', color: '#15803d', category: 'Roofing & Landscaping', roughness: 0.95 },
+    roof_clay: { name: 'Spanish Clay Roof Tile', color: '#ea580c', category: 'Roofing & Landscaping', roughness: 0.8 }
+  };
+
+  // ==========================================
+  // 4. 3D ARCHITECTURAL COMPONENTS
+  // ==========================================
+
+  class CADSketchComponents {
+    static insertDoor(model, pos, width = 0.95, height = 2.15, wallThick = 0.24) {
+      const x = pos.x, y = pos.y, z = pos.z || 0;
+      const j1 = model.createRectangle(new Point3D(x, y - wallThick / 2, z), new Point3D(x + 0.05, y + wallThick / 2, z), z, { color: '#78350f', name: 'Wood Jamb' });
+      if (j1) model.pushPullFace(j1.id, height);
+      const j2 = model.createRectangle(new Point3D(x + width - 0.05, y - wallThick / 2, z), new Point3D(x + width, y + wallThick / 2, z), z, { color: '#78350f', name: 'Wood Jamb' });
+      if (j2) model.pushPullFace(j2.id, height);
+      const leaf = model.createRectangle(new Point3D(x + 0.05, y - 0.02, z), new Point3D(x + width - 0.05, y + 0.02, z), z, { color: '#92400e', name: 'Teak Door Leaf' });
+      if (leaf) model.pushPullFace(leaf.id, height - 0.04);
+    }
+
+    static insertWindow(model, pos, width = 1.6, height = 1.3, sillH = 0.9, wallThick = 0.24) {
+      const x = pos.x, y = pos.y, z = (pos.z || 0) + sillH;
+      const sill = model.createRectangle(new Point3D(x - 0.05, y - wallThick / 2 - 0.05, z - 0.04), new Point3D(x + width + 0.05, y + wallThick / 2 + 0.02, z - 0.04), z - 0.04, { color: '#94a3b8', name: 'Stone Sill' });
+      if (sill) model.pushPullFace(sill.id, 0.04);
+      const glass = model.createRectangle(new Point3D(x + 0.04, y - 0.01, z), new Point3D(x + width - 0.04, y + 0.01, z), z, { color: '#a5f3fc', transparent: true, opacity: 0.35, name: 'Float Glass' });
+      if (glass) model.pushPullFace(glass.id, height);
+    }
+
+    static insertStairs(model, pos, steps = 12, width = 1.0, tread = 0.26, riser = 0.17) {
+      const x = pos.x, y = pos.y, z = pos.z || 0;
+      for (let i = 0; i < steps; i++) {
+        const step = model.createRectangle(new Point3D(x, y + i * tread, z), new Point3D(x + width, y + (i + 1) * tread, z), z, { color: '#cbd5e1', name: 'Stair Step' });
+        if (step) model.pushPullFace(step.id, (i + 1) * riser);
+      }
+    }
+
+    static insertKitchenCounter(model, pos, length = 2.4, depth = 0.6, height = 0.86) {
+      const x = pos.x, y = pos.y, z = pos.z || 0;
+      const base = model.createRectangle(new Point3D(x, y, z), new Point3D(x + length, y + depth, z), z, { color: '#78350f', name: 'Wood Cabinet' });
+      if (base) model.pushPullFace(base.id, height - 0.04);
+      const top = model.createRectangle(new Point3D(x - 0.02, y - 0.02, z + height - 0.04), new Point3D(x + length + 0.02, y + depth + 0.02, z + height - 0.04), z + height - 0.04, { color: '#18181b', name: 'Black Granite' });
+      if (top) model.pushPullFace(top.id, 0.04);
+    }
+
+    static insertKingBed(model, pos, width = 1.9, length = 2.1) {
+      const x = pos.x, y = pos.y, z = pos.z || 0;
+      const base = model.createRectangle(new Point3D(x, y, z), new Point3D(x + width, y + length, z), z, { color: '#d97706', name: 'Oak Bed Frame' });
+      if (base) model.pushPullFace(base.id, 0.35);
+      const mattress = model.createRectangle(new Point3D(x + 0.05, y + 0.05, z + 0.35), new Point3D(x + width - 0.05, y + length - 0.05, z + 0.35), z + 0.35, { color: '#f8fafc', name: 'Comfort Mattress' });
+      if (mattress) model.pushPullFace(mattress.id, 0.22);
+      const head = model.createRectangle(new Point3D(x, y + length - 0.08, z), new Point3D(x + width, y + length, z), z, { color: '#78350f', name: 'Bed Headboard' });
+      if (head) model.pushPullFace(head.id, 1.1);
+    }
+
+    static insertScaleFigure(model, pos) {
+      const x = pos.x, y = pos.y, z = pos.z || 0;
+      const body = model.createRectangle(new Point3D(x - 0.2, y - 0.1, z), new Point3D(x + 0.2, y + 0.1, z), z, { color: '#dc2626', name: 'Scale Figure' });
+      if (body) model.pushPullFace(body.id, 1.7);
+    }
+  }
+
+  // ==========================================
+  // 5. INFERENCE SNAPPING ENGINE
   // ==========================================
 
   class InferenceEngine {
     constructor(model) {
       this.model = model;
-      this.snapDist = 0.35;
+      this.snapDistance = 0.35;
     }
 
     findInference(startPt, curPt) {
       if (!curPt) return { point: new Point3D(0, 0, 0), type: 'free', tooltip: '', color: 0x000000 };
 
-      // 1. Endpoint snaps
+      // Endpoints & Midpoints
       for (const edge of this.model.edges) {
-        if (curPt.distanceTo(edge.start) <= this.snapDist) {
+        if (curPt.distanceTo(edge.start) <= this.snapDistance) {
           return { point: edge.start.clone(), type: 'endpoint', tooltip: 'Endpoint', color: 0x16a34a };
         }
-        if (curPt.distanceTo(edge.end) <= this.snapDist) {
+        if (curPt.distanceTo(edge.end) <= this.snapDistance) {
           return { point: edge.end.clone(), type: 'endpoint', tooltip: 'Endpoint', color: 0x16a34a };
         }
         const mid = edge.midpoint();
-        if (curPt.distanceTo(mid) <= this.snapDist) {
+        if (curPt.distanceTo(mid) <= this.snapDistance) {
           return { point: mid, type: 'midpoint', tooltip: 'Midpoint', color: 0x06b6d4 };
         }
       }
 
-      // 2. Origin snap
+      // Origin Snap
       const origin = new Point3D(0, 0, 0);
-      if (curPt.distanceTo(origin) <= this.snapDist) {
+      if (curPt.distanceTo(origin) <= this.snapDistance) {
         return { point: origin, type: 'origin', tooltip: 'Origin', color: 0xf59e0b };
       }
 
-      // 3. Axis Inferences (Red=X, Green=Y, Blue=Z)
+      // Axis Alignment Inferences (Red=X, Green=Y, Blue=Z)
       if (startPt) {
         const dx = Math.abs(curPt.x - startPt.x);
         const dy = Math.abs(curPt.y - startPt.y);
@@ -378,10 +514,10 @@
   }
 
   // ==========================================
-  // 3. THREE.JS VIEWPORT & RENDERING ENGINE
+  // 6. THREE.JS VIEWPORT & RENDERING PIPELINE
   // ==========================================
 
-  class SketchUpViewport {
+  class CADSketchViewport {
     constructor(container, onSelect, onToolAction, onViewAngleChange) {
       this.container = container;
       this.onSelect = onSelect || (() => {});
@@ -390,15 +526,15 @@
       this.model = null;
 
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0xc9e2f5); // Sky Blue
+      this.scene.background = new THREE.Color(0xc9e2f5); // SketchUp Sky Blue
 
-      const w = container.clientWidth || 800;
-      const h = container.clientHeight || 500;
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || (window.innerHeight - 80);
 
       this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-      this.camera.position.set(12, -15, 11);
+      this.camera.position.set(16, -18, 14);
       this.camera.up.set(0, 0, 1);
-      this.target = new THREE.Vector3(2.5, 3, 1);
+      this.target = new THREE.Vector3(4, 4, 1.5);
       this.camera.lookAt(this.target);
 
       this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -416,6 +552,7 @@
       this.edgesGroup = new THREE.Group();
       this.tempGroup = new THREE.Group();
       this.inferenceGroup = new THREE.Group();
+
       this.scene.add(this.geometryGroup);
       this.scene.add(this.edgesGroup);
       this.scene.add(this.tempGroup);
@@ -423,6 +560,7 @@
 
       this.selectedFaceId = null;
       this.hoverFaceId = null;
+      this.currentStyle = 'classic';
 
       this.setupEnvironment();
       this.setupLighting();
@@ -437,14 +575,14 @@
 
     setupEnvironment() {
       // Ground plane
-      const groundGeo = new THREE.PlaneGeometry(120, 120);
+      const groundGeo = new THREE.PlaneGeometry(160, 160);
       const groundMat = new THREE.MeshStandardMaterial({ color: 0xd6d0ba, roughness: 0.95 });
       const groundMesh = new THREE.Mesh(groundGeo, groundMat);
       groundMesh.position.set(0, 0, -0.01);
       groundMesh.receiveShadow = true;
       this.scene.add(groundMesh);
 
-      // 3D RGB Axes
+      // 3D RGB Coordinate Axes
       const makeLine = (p1, p2, color, isDashed = false) => {
         const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
         const mat = isDashed ? new THREE.LineDashedMaterial({ color, dashSize: 0.5, gapSize: 0.3 }) : new THREE.LineBasicMaterial({ color, linewidth: 2 });
@@ -453,34 +591,30 @@
         return line;
       };
 
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(40,0,0.005), 0xef4444));
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(-20,0,0.005), 0xfca5a5, true));
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,40,0.005), 0x22c55e));
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,-20,0.005), 0x86efac, true));
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,0,25), 0x3b82f6));
-      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,0,-12), 0x93c5fd, true));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(50,0,0.005), 0xef4444));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(-25,0,0.005), 0xfca5a5, true));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,50,0.005), 0x22c55e));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,-25,0.005), 0x86efac, true));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,0,30), 0x3b82f6));
+      this.scene.add(makeLine(new THREE.Vector3(0,0,0.005), new THREE.Vector3(0,0,-15), 0x93c5fd, true));
 
       // Grid
-      const grid = new THREE.GridHelper(30, 30, 0x94a3b8, 0xcfd8dc);
+      const grid = new THREE.GridHelper(40, 40, 0x94a3b8, 0xcfd8dc);
       grid.rotation.x = Math.PI / 2;
-      grid.position.set(5, 5, 0);
+      grid.position.set(8, 8, 0);
       this.scene.add(grid);
     }
 
     setupLighting() {
-      const ambient = new THREE.AmbientLight(0xffffff, 0.75);
-      this.scene.add(ambient);
+      this.ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+      this.scene.add(this.ambientLight);
 
-      const sun = new THREE.DirectionalLight(0xfffbeb, 1.35);
-      sun.position.set(20, -18, 25);
-      sun.castShadow = true;
-      this.scene.add(sun);
+      this.sunLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
+      this.sunLight.position.set(25, -20, 30);
+      this.sunLight.castShadow = true;
+      this.scene.add(this.sunLight);
     }
 
-    /**
-     * Autodesk Revit Mouse Navigation
-     * MMB = Pan, Shift+MMB = Orbit, Wheel = Zoom, LMB = Tool
-     */
     initMouseNavigation() {
       let isOrbiting = false;
       let isPanning = false;
@@ -499,16 +633,19 @@
         prev = { x: e.clientX, y: e.clientY };
         updateMouse(e);
 
+        // Revit: MMB or Alt+LMB = Pan
         if ((e.button === 1 && !e.shiftKey) || (e.button === 0 && e.altKey)) {
           isPanning = true;
           dom.style.cursor = 'grab';
           return;
         }
+        // Revit: Shift+MMB or Right-Click (RMB) = Orbit
         if ((e.button === 1 && e.shiftKey) || e.button === 2) {
           isOrbiting = true;
           dom.style.cursor = 'crosshair';
           return;
         }
+        // Left Click = Tool Action
         if (e.button === 0) {
           this.onToolAction('pointerdown', e, this.getIntersectionPoint());
         }
@@ -549,7 +686,9 @@
           return;
         }
 
-        this.onToolAction('pointermove', e, this.getIntersectionPoint());
+        if (isCanvasDown || e.target === dom) {
+          this.onToolAction('pointermove', e, this.getIntersectionPoint());
+        }
       });
 
       window.addEventListener('pointerup', (e) => {
@@ -611,7 +750,16 @@
       while (this.edgesGroup.children.length > 0) this.edgesGroup.remove(this.edgesGroup.children[0]);
       if (!this.model) return;
 
-      // Faces
+      const clippingPlanes = [];
+      if (this.model.displaySectionCuts) {
+        for (const sp of this.model.sectionPlanes) {
+          if (sp.active) {
+            clippingPlanes.push(new THREE.Plane(new THREE.Vector3(sp.normal.x, sp.normal.y, sp.normal.z), -sp.position.dot(sp.normal)));
+          }
+        }
+      }
+
+      // Rebuild 3D Faces
       for (const face of this.model.faces) {
         if (face.points.length < 3) continue;
         const vertices = [];
@@ -621,22 +769,37 @@
           vertices.push(face.points[i].x, face.points[i].y, face.points[i].z);
           vertices.push(face.points[i + 1].x, face.points[i + 1].y, face.points[i + 1].z);
         }
+
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         geo.computeVertexNormals();
         geo.computeBoundingBox();
         geo.computeBoundingSphere();
 
-        let color = face.material?.color || '#ffffff';
-        if (this.selectedFaceId === face.id) color = '#38bdf8';
-        else if (this.hoverFaceId === face.id) color = '#bae6fd';
+        let colorHex = face.material?.color || '#ffffff';
+        let opacity = face.material?.opacity || 1.0;
+        let transparent = face.material?.transparent || false;
+
+        if (this.selectedFaceId === face.id) {
+          colorHex = '#38bdf8'; // Selected Cyan
+        } else if (this.hoverFaceId === face.id) {
+          colorHex = '#bae6fd'; // Light Cyan Hover
+        }
+
+        if (this.currentStyle === 'monochrome') colorHex = '#ffffff';
+        else if (this.currentStyle === 'blueprint') colorHex = '#0284c7';
+        else if (this.currentStyle === 'xray') { transparent = true; opacity = 0.55; }
 
         const mat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(color),
-          roughness: face.material?.roughness || 0.6,
-          metalness: face.material?.metalness || 0.0,
-          side: THREE.DoubleSide
+          color: new THREE.Color(colorHex),
+          roughness: face.material?.roughness || 0.65,
+          metalness: face.material?.metalness || 0.05,
+          transparent,
+          opacity,
+          side: THREE.DoubleSide,
+          clippingPlanes
         });
+
         const mesh = new THREE.Mesh(geo, mat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -644,8 +807,9 @@
         this.geometryGroup.add(mesh);
       }
 
-      // Edges
-      const edgeMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 2 });
+      // Rebuild 3D Edges
+      const edgeColor = this.currentStyle === 'blueprint' ? 0xffffff : 0x0f172a;
+      const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor, linewidth: 2, clippingPlanes });
       for (const edge of this.model.edges) {
         const pts = [new THREE.Vector3(edge.start.x, edge.start.y, edge.start.z), new THREE.Vector3(edge.end.x, edge.end.y, edge.end.z)];
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -667,10 +831,8 @@
 
     setRubberBandRect(p1, p2, z = 0, colorHex = 0x0284c7) {
       this.clearTempGroup();
-      const minX = Math.min(p1.x, p2.x);
-      const maxX = Math.max(p1.x, p2.x);
-      const minY = Math.min(p1.y, p2.y);
-      const maxY = Math.max(p1.y, p2.y);
+      const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
 
       const pts = [
         new THREE.Vector3(minX, minY, z), new THREE.Vector3(maxX, minY, z),
@@ -727,8 +889,7 @@
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
       geo.computeVertexNormals();
-
-      const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, roughness: 0.3, side: THREE.DoubleSide });
+      const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
       this.tempGroup.add(new THREE.Mesh(geo, mat));
     }
 
@@ -759,8 +920,8 @@
     }
 
     onResize() {
-      const w = this.container.clientWidth;
-      const h = this.container.clientHeight;
+      const w = this.container.clientWidth || window.innerWidth;
+      const h = this.container.clientHeight || (window.innerHeight - 80);
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
@@ -768,7 +929,7 @@
   }
 
   // ==========================================
-  // 4. INTERACTIVE TOOL MANAGER
+  // 7. INTERACTIVE TOOL MANAGER
   // ==========================================
 
   class ToolManager {
@@ -780,7 +941,7 @@
       this.onMeasure = onMeasure || (() => {});
 
       this.activeTool = 'select';
-      this.activeMaterial = { color: '#ffffff', name: 'Default Material' };
+      this.activeMaterial = { color: '#ffffff', name: 'CADSketch Default White' };
 
       this.lineStart = null;
       this.rectStart = null;
@@ -801,10 +962,13 @@
 
       const dom = this.viewport.renderer.domElement;
       if (tool === 'select') dom.style.cursor = 'default';
-      else if (['line', 'rectangle', 'circle'].includes(tool)) dom.style.cursor = 'crosshair';
+      else if (['line', 'rectangle', 'circle', 'tape', 'dimension'].includes(tool)) dom.style.cursor = 'crosshair';
       else if (tool === 'pushpull') dom.style.cursor = 'ew-resize';
+      else if (tool === 'offset') dom.style.cursor = 'copy';
       else if (tool === 'eraser') dom.style.cursor = 'not-allowed';
       else if (tool === 'paint') dom.style.cursor = 'pointer';
+      else dom.style.cursor = 'default';
+
       this.updatePrompt();
     }
 
@@ -814,8 +978,10 @@
       else if (this.activeTool === 'rectangle') this.onStatus(this.rectStart ? 'Rectangle: Click opposite corner.' : 'Rectangle: Click first corner.');
       else if (this.activeTool === 'circle') this.onStatus(this.circleStart ? 'Circle: Move to set radius.' : 'Circle: Click center point.');
       else if (this.activeTool === 'pushpull') this.onStatus('Push/Pull: Click and drag face to extrude into 3D solid.');
+      else if (this.activeTool === 'offset') this.onStatus('Offset: Click a face and drag to offset contour.');
       else if (this.activeTool === 'eraser') this.onStatus('Eraser: Click on any face or edge to delete.');
-      else if (this.activeTool === 'paint') this.onStatus('Paint Bucket: Click on any face to apply active material.');
+      else if (this.activeTool === 'paint') this.onStatus(`Paint Bucket: Click on any face to apply "${this.activeMaterial.name}".`);
+      else if (this.activeTool === 'section') this.onStatus('Section Plane: Click on surface to place cut plane.');
     }
 
     handleAction(action, e, hit) {
@@ -847,7 +1013,6 @@
           this.viewport.setRubberBandLine(this.lineStart, inf.point, inf.color);
           const len = this.lineStart.distanceTo(inf.point);
           this.onMeasure('Length', `${len.toFixed(2)} ${this.model.units}`);
-          this.onStatus(`Line length: ${len.toFixed(2)} ${this.model.units} ${inf.tooltip ? `[${inf.tooltip}]` : ''}`);
         }
         if (action === 'pointerup') {
           if (!this.lineStart) {
@@ -975,8 +1140,15 @@
         if (face) {
           face.material = { ...this.activeMaterial };
           this.viewport.rebuildScene();
-          this.onStatus(`Applied material "${this.activeMaterial.name}" to face.`);
+          this.onStatus(`Applied material "${this.activeMaterial.name}".`);
         }
+      }
+
+      // SECTION PLANE
+      if (this.activeTool === 'section' && action === 'pointerup' && hit) {
+        this.model.addSectionPlane(hit.point, hit.normal || new Point3D(0, 0, -1));
+        this.viewport.rebuildScene();
+        this.onStatus('Added Section Cutting Plane.');
       }
     }
 
@@ -986,17 +1158,52 @@
       if (this.activeTool === 'pushpull' && this.lastPushedFace) {
         this.model.pushPullFace(this.lastPushedFace, num);
         this.viewport.rebuildScene();
-        this.onStatus(`Set push/pull to ${num} ${this.model.units}.`);
+        this.onStatus(`Set Push/Pull to ${num} ${this.model.units}.`);
       }
     }
   }
 
+  // ==========================================
+  // 8. 3D OBJ EXPORTER
+  // ==========================================
+
+  class OBJExporter {
+    static exportToOBJ(model) {
+      let output = `# CADSketch 3D Model Export\n# Software: CADSketch Pro (Google SketchUp Architecture)\n# Developer: Aadesh Navade (+91 93411 02949)\n\no ${model.name || 'Building'}\n\n`;
+      const vertexMap = new Map();
+      const vertices = [];
+      let vIndex = 1;
+
+      const getIdx = (p) => {
+        const key = `${p.x.toFixed(4)}_${p.y.toFixed(4)}_${p.z.toFixed(4)}`;
+        if (vertexMap.has(key)) return vertexMap.get(key);
+        vertexMap.set(key, vIndex);
+        vertices.push(`v ${p.x.toFixed(4)} ${p.y.toFixed(4)} ${p.z.toFixed(4)}`);
+        return vIndex++;
+      };
+
+      const faceStrings = [];
+      for (const face of model.faces) {
+        if (face.points.length < 3) continue;
+        const idxs = face.points.map(p => getIdx(p));
+        faceStrings.push(`f ${idxs.join(' ')}`);
+      }
+      return output + vertices.join('\n') + '\n\n' + faceStrings.join('\n') + '\n';
+    }
+  }
+
   // Export to window
-  window.AadiSketchWeb = {
+  window.CADSketch = {
     Point3D,
-    SketchUpModel,
-    SketchUpViewport,
-    ToolManager
+    Edge,
+    Face,
+    CADSketchModel,
+    CADSKETCH_MATERIALS,
+    CADSketchComponents,
+    InferenceEngine,
+    CADSketchViewport,
+    ToolManager,
+    OBJExporter
   };
 
 })(window);

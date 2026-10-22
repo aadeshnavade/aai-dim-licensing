@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAI 3D | Autonomous Architectural Modeling, BIM & Licensing Platform</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        revit: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#082f49'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Three.js Local Engine & AadiSketch App Core -->
+    <script src="/three.min.js"></script>
+    <script src="/aadisketch_app.js"></script>
+    <script src="/aadisketch_web.js"></script>
+    <style>
+        .badge-active { @apply bg-emerald-100 text-emerald-800 border border-emerald-300; }
+        .badge-expired { @apply bg-amber-100 text-amber-800 border border-amber-300; }
+        .badge-suspended { @apply bg-rose-100 text-rose-800 border border-rose-300; }
+        .badge-pending { @apply bg-blue-100 text-blue-800 border border-blue-300; }
+
+        /* 3D ViewCube in Top-Right */
+        .viewcube-wrapper {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 90px;
+            height: 90px;
+            z-index: 30;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .viewcube-home-btn {
+            position: absolute;
+            top: -4px;
+            left: 0px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #94a3b8;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 1px 5px;
+            z-index: 40;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: all 0.15s ease;
+        }
+        .viewcube-home-btn:hover {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0369a1;
+        }
+        .viewcube-scene {
+            width: 52px;
+            height: 52px;
+            perspective: 350px;
+            margin-top: 4px;
+        }
+        .viewcube-box {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-30deg) rotateY(45deg);
+            transition: transform 0.05s ease-out;
+        }
+        .cube-face {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            border: 1.5px solid #475569;
+            background: rgba(248, 250, 252, 0.95);
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.15);
+            transition: background-color 0.12s ease, color 0.12s ease;
+        }
+        .cube-face:hover {
+            background-color: #0284c7;
+            color: #ffffff;
+        }
+        .cube-front  { transform: rotateY(0deg) translateZ(26px); }
+        .cube-back   { transform: rotateY(180deg) translateZ(26px); }
+        .cube-right  { transform: rotateY(90deg) translateZ(26px); }
+        .cube-left   { transform: rotateY(-90deg) translateZ(26px); }
+        .cube-top    { transform: rotateX(90deg) translateZ(26px); }
+        .cube-bottom { transform: rotateX(-90deg) translateZ(26px); }
+
+        .compass-ring {
+            position: absolute;
+            bottom: -2px;
+            width: 76px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 4px;
+            font-size: 8px;
+            font-weight: 800;
+            color: #64748b;
+            pointer-events: none;
+        }
+        .compass-pt.n { color: #dc2626; font-weight: 900; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans relative overflow-x-hidden">
+
+    <!-- Dynamic Looping BIM Background Canvas -->
+    <canvas id="bimBackgroundCanvas" class="fixed inset-0 pointer-events-none z-0 w-full h-full" style="opacity: 0.75;"></canvas>
+
+    <!-- Page Content Wrapper (Above Canvas) -->
+    <div class="relative z-10 flex flex-col min-h-screen">
+
+        <!-- Top Navigation -->
+        <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="showView('pricing')">
+                    <img src="/assets/logo.png" alt="AAI Logo" class="w-11 h-11 object-contain rounded-full bg-white p-0.5 shadow-md border border-slate-700">
+                    <div>
+                        <div class="text-xl font-bold tracking-tight text-white flex items-center space-x-2">
+                            <span>AAI 3D</span>
+                            <span class="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-400/30">v1.0 Pro</span>
+                        </div>
+                        <div class="text-[11px] text-cyan-400 font-medium tracking-wide">AIM • ACHIEVE • INSPIRE</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-3.5 py-2 rounded-lg text-sm shadow-md transition flex items-center border border-cyan-400/30">
+                        <i class="fa-solid fa-cube text-cyan-200 mr-1.5"></i> Launch AadiSketch Pro
+                    </a>
+                    <button onclick="showView('pricing')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-tag mr-1.5"></i> Pricing & Plans
+                    </button>
+                    <button onclick="showView('customer')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-user-circle mr-1.5"></i> Customer Portal
+                    </button>
+                    <button onclick="showView('admin')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-shield-halved mr-1.5"></i> Admin Portal
+                    </button>
+                    <a id="navWhatsappBtn" href="https://wa.me/919341102949" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md text-sm font-medium transition flex items-center shadow">
+                        <i class="fa-brands fa-whatsapp text-lg mr-1.5"></i> Support
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Global Alert Banner (Hidden by default) -->
+    <div id="globalBanner" class="hidden py-3 px-4 text-center text-sm font-medium"></div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: PRICING & PUBLIC SHOWCASE          -->
+        <!-- ========================================== -->
+        <section id="viewPricing" class="space-y-12">
+            <!-- Hero -->
+            <div class="text-center space-y-5 max-w-3xl mx-auto pt-4">
+                <div class="flex flex-col items-center justify-center space-y-3">
+                    <img src="/assets/logo.png" alt="AAI Logo" class="w-24 h-24 object-contain rounded-full bg-white p-1.5 shadow-xl border-2 border-slate-200 hover:scale-105 transition-transform duration-300">
+                    <div class="inline-flex items-center space-x-2 px-3.5 py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-semibold tracking-wide uppercase">
+                        <span>Windows 11 / 10 • Native 64-bit Desktop</span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                        <span class="font-bold text-slate-800">AIM • ACHIEVE • INSPIRE</span>
+                    </div>
+                </div>
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                    Autonomous 3D Architectural Modeler &amp; <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Vastu-Aware BIM Engine</span>
+                </h1>
+                <p class="text-lg text-slate-600">
+                    SketchUp-style direct on-screen Push/Pull modeling combined with Revit-style precision detailing, auto-dimensioning, 9-zone Vastu Shastra analysis, and buildingSMART IFC 4.3 export.
+                </p>
+                <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-base px-8 py-3.5 rounded-xl shadow-xl hover:shadow-cyan-500/30 transition flex items-center space-x-2.5">
+                        <i class="fa-solid fa-cube text-cyan-200 text-lg"></i>
+                        <span>Launch Full-Screen AadiSketch App</span>
+                    </a>
+                    <button onclick="scrollToPlans()" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl shadow-sm transition">
+                        View Subscription Plans
+                    </button>
+                    <button onclick="showView('customer')" class="bg-slate-100 border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl transition shadow-sm">
+                        Sign In to Download
+                    </button>
+                </div>
+            </div>
+
+            <!-- Features Highlights Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 pt-6">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xl font-bold">
+                        📐
+                    </div>
+                    <h3 class="font-bold text-slate-900">SketchUp-Style Push/Pull</h3>
+                    <p class="text-xs text-slate-600">Click directly on any wall face to pull or push thickness and height in real-time with dynamic dimension adjustment.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="w-10 h-10 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-xl font-bold">
+                        🤖
+                    </div>
+                    <h3 class="font-bold text-slate-900">AI Architectural Copilot</h3>
+                    <p class="text-xs text-slate-600">Type plain English prompts like "Move wall 300 mm east", "Change kitchen to bedroom", or "Design a 30x40 2 BHK".</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                        🔄
+                    </div>
+                    <h3 class="font-bold text-slate-900">Revit-Style Detailing &amp; Scale</h3>
+                    <p class="text-xs text-slate-600">Multi-tier associative dimensions with anti-overlap collision avoidance and customizable annotation scales (1:50, 1:100).</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xl font-bold">
+                        📦
+                    </div>
+                    <h3 class="font-bold text-slate-900">Vastu Shastra Intelligence</h3>
+                    <p class="text-xs text-slate-600">9-zone directional scoring (SW Master Bed, SE Kitchen, NE Pooja) with transparent scorecard and user override capability.</p>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- BIM DOCUMENTS, DIGITAL TWIN & DRAFTING SHOWCASE SECTION  -->
+            <!-- ======================================================== -->
+            <div class="pt-8 space-y-6">
+                <div class="text-center space-y-3 max-w-3xl mx-auto">
+                    <div class="inline-flex items-center space-x-2 px-3.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm">
+                        <i class="fa-solid fa-layer-group text-blue-600 mr-1"></i>
+                        <span>High-Precision BIM &amp; Parametric Digital Twin</span>
+                    </div>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+                        Autonomous BIM Sheets, Digital Twin Telemetry &amp; Precision Drafting
+                    </h2>
+                    <p class="text-sm sm:text-base text-slate-600">
+                        Explore real-time architectural construction documents, 3D parametric digital twin monitoring, and true aligned geometry drafted natively into Autodesk Revit.
+                    </p>
+                </div>
+
+                <!-- Showcase Interactive Tab Controls -->
+                <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto p-1.5 bg-slate-200/90 rounded-2xl backdrop-blur-sm border border-slate-300 shadow-inner">
+                    <button id="showcaseTab1Btn" onclick="switchShowcaseTab('aadisketch')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm bg-blue-600 text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-cube text-cyan-300"></i>
+                        <span>AadiSketch 3D Modeler (Live Studio)</span>
+                    </button>
+                    <button id="showcaseTab2Btn" onclick="switchShowcaseTab('sheet')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-lines text-cyan-500"></i>
+                        <span>BIM Construction Sheet (A101)</span>
+                    </button>
+                    <button id="showcaseTab3Btn" onclick="switchShowcaseTab('digitaltwin')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
+                        <i class="fa-solid fa-city text-purple-500"></i>
+                        <span>Advanced 3D Digital Twin</span>
+                    </button>
+                    <button id="showcaseTab4Btn" onclick="switchShowcaseTab('copilot')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
+                        <i class="fa-solid fa-brain text-emerald-500"></i>
+                        <span>Autodesk AI Assistant Sync</span>
+                    </button>
+                </div>
+
+                <!-- Showcase Content Box -->
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden max-w-6xl mx-auto" id="aadisketchStudioSection">
+                    
+                    <!-- TAB 0: LIVE AADISKETCH 3D MODELER STUDIO -->
+                    <div id="showcaseTabAadisketch" class="p-4 sm:p-6 space-y-4">
+                        <!-- Top Header & Banner -->
+                        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Interactive 3D Web CAD</span>
+                                    <span class="bg-cyan-100 text-cyan-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-cyan-300">PURE SKETCHUP CORE</span>
+                                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">REVIT MOUSE CONTROLS</span>
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-black text-slate-900">AadiSketch Pro • Web 3D Modeling Studio</h3>
+                                <p class="text-xs text-slate-500">Click &amp; Push/Pull directly on screen • Inference Axis Snapping (Red/Green/Blue) • 3D ViewCube &amp; Precision Measurements</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="resetWebCADSample()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition flex items-center shadow-sm">
+                                    <i class="fa-solid fa-house-chimney text-blue-600 mr-1.5"></i> Reload 3D House
+                                </button>
+                                <button onclick="clearWebCADModel()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 transition flex items-center">
+                                    <i class="fa-solid fa-trash-can mr-1.5"></i> Clear
+                                </button>
+                                <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-up-right-from-square mr-1.5"></i> Full-Screen App (/app)
+                                </a>
+                                <a href="https://github.com/aadeshnavade/aai-dim-licensing/releases" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-download mr-1.5"></i> Desktop .exe
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- CAD Tool Ribbon -->
+                        <div class="bg-slate-100 border border-slate-200 rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button onclick="setWebCADTool('select')" data-tool="select" class="web-cad-tool-btn bg-blue-600 text-white shadow-md px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center">
+                                    <i class="fa-solid fa-arrow-pointer mr-1.5"></i> Select
+                                </button>
+                                <button onclick="setWebCADTool('pushpull')" data-tool="pushpull" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-up-down-left-right text-amber-600 mr-1.5"></i> Push/Pull
+                                </button>
+                                <button onclick="setWebCADTool('line')" data-tool="line" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-pencil text-red-500 mr-1.5"></i> Line
+                                </button>
+                                <button onclick="setWebCADTool('rectangle')" data-tool="rectangle" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-regular fa-square text-blue-600 mr-1.5"></i> Rectangle
+                                </button>
+                                <button onclick="setWebCADTool('circle')" data-tool="circle" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-regular fa-circle text-emerald-600 mr-1.5"></i> Circle
+                                </button>
+                                <button onclick="setWebCADTool('eraser')" data-tool="eraser" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-eraser text-rose-500 mr-1.5"></i> Eraser
+                                </button>
+                                <button onclick="setWebCADTool('paint')" data-tool="paint" class="web-cad-tool-btn bg-white text-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border border-slate-300">
+                                    <i class="fa-solid fa-fill-drip text-purple-600 mr-1.5"></i> Paint
+                                </button>
+                            </div>
+
+                            <!-- Views & History Buttons -->
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Views:</span>
+                                <button onclick="setWebStandardView('top')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Top (Plan) View">
+                                    Top (Plan)
+                                </button>
+                                <button onclick="setWebStandardView('front')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Front Elevation">
+                                    Front
+                                </button>
+                                <button onclick="setWebStandardView('right')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Right Elevation">
+                                    Right
+                                </button>
+                                <button onclick="setWebStandardView('iso')" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 shadow-sm" title="Isometric 3D">
+                                    Iso 3D
+                                </button>
+                                <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                                <button onclick="undoWebCAD()" class="bg-white hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs border border-slate-300 shadow-sm" title="Undo">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                                <button onclick="redoWebCAD()" class="bg-white hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs border border-slate-300 shadow-sm" title="Redo">
+                                    <i class="fa-solid fa-rotate-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Center Canvas & Inspector Layout Grid -->
+                        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                            <!-- Left: 3D Viewport (3 cols) -->
+                            <div class="lg:col-span-3 bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative min-h-[520px] flex flex-col">
+                                <!-- WebGL 3D Canvas Container -->
+                                <div id="aadisketchWebContainer" class="w-full flex-grow relative cursor-crosshair min-h-[480px]">
+                                    <!-- Three.js Canvas injected here -->
+
+                                    <!-- INTERACTIVE 3D VIEWCUBE IN THE TOP-RIGHT CORNER -->
+                                    <div class="viewcube-wrapper">
+                                        <button class="viewcube-home-btn" id="aadisketchCubeHome" title="Reset to Isometric 3D View">
+                                            <i class="fa-solid fa-house text-[10px]"></i>
+                                        </button>
+                                        <div class="viewcube-scene">
+                                            <div class="viewcube-box" id="aadisketchViewCubeBox">
+                                                <div class="cube-face cube-front" data-view="front">FRONT</div>
+                                                <div class="cube-face cube-back" data-view="back">BACK</div>
+                                                <div class="cube-face cube-right" data-view="right">RIGHT</div>
+                                                <div class="cube-face cube-left" data-view="left">LEFT</div>
+                                                <div class="cube-face cube-top" data-view="top">TOP</div>
+                                                <div class="cube-face cube-bottom" data-view="bottom">BOTTOM</div>
+                                            </div>
+                                        </div>
+                                        <div class="compass-ring">
+                                            <span class="compass-pt">W</span>
+                                            <span class="compass-pt n">N</span>
+                                            <span class="compass-pt">E</span>
+                                            <span class="compass-pt">S</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Overlay Helper Guide (Revit & SketchUp Controls) -->
+                                    <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/60 text-[11px] text-slate-300 pointer-events-none shadow">
+                                        <span class="font-bold text-cyan-400">Navigation:</span> Right-Click Drag = Orbit • MMB Drag = Pan • Wheel = Zoom
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Status & Measurements Bar -->
+                                <div class="h-10 bg-slate-950 border-t border-slate-800 px-4 flex items-center justify-between text-xs font-mono text-slate-300">
+                                    <div class="flex items-center space-x-2 truncate">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <span id="aadisketchStatusPrompt" class="text-slate-300 truncate">Select Tool: Click any face or edge to inspect.</span>
+                                    </div>
+                                    <!-- Measurements Box -->
+                                    <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1 rounded border border-slate-700">
+                                        <span id="aadisketchMeasureLabel" class="text-slate-400 font-sans text-[11px]">Measurements:</span>
+                                        <input type="text" id="aadisketchMeasureVal" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 text-xs w-28 text-right font-mono focus:outline-none focus:border-cyan-500" placeholder="0.00 m" title="Type distance or dimensions and press Enter">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Default Tray / Inspector Panel (1 col) -->
+                            <div class="lg:col-span-1 space-y-4">
+                                <!-- Entity Info -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center">
+                                            <i class="fa-solid fa-circle-info text-blue-600 mr-1.5"></i> Entity Info
+                                        </h4>
+                                        <span id="traySelectedType" class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">Face (Surface)</span>
+                                    </div>
+                                    <div class="space-y-1.5 text-xs">
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Surface Area:</span>
+                                            <span id="traySelectedArea" class="font-mono font-bold text-slate-900">42.50 sq m</span>
+                                        </div>
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Normal Vector:</span>
+                                            <span id="traySelectedNormal" class="font-mono text-slate-700">(0.00, 0.00, 1.00)</span>
+                                        </div>
+                                        <div class="flex justify-between text-slate-600">
+                                            <span>Active Material:</span>
+                                            <span id="trayActiveMatName" class="font-bold text-blue-600 truncate">Default Plaster</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Architectural Materials -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center border-b border-slate-100 pb-2">
+                                        <i class="fa-solid fa-palette text-amber-500 mr-1.5"></i> Materials Palette
+                                    </h4>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <button onclick="setWebCADMaterial('#f1f5f9', 'Wall Plaster')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Wall Plaster">
+                                            <span class="w-6 h-6 rounded-md bg-[#f1f5f9] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Plaster</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#b45309', 'Hardwood Parquet')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Hardwood Parquet">
+                                            <span class="w-6 h-6 rounded-md bg-[#b45309] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Wood</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#e0f2fe', 'Polished Granite')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Polished Granite">
+                                            <span class="w-6 h-6 rounded-md bg-[#e0f2fe] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Granite</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#b91c1c', 'Exposed Brick')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Exposed Brick">
+                                            <span class="w-6 h-6 rounded-md bg-[#b91c1c] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Brick</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#94a3b8', 'R.C.C Concrete')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="R.C.C Concrete">
+                                            <span class="w-6 h-6 rounded-md bg-[#94a3b8] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Concrete</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#38bdf8', 'Clear Glazing Glass')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Clear Glazing Glass">
+                                            <span class="w-6 h-6 rounded-md bg-[#38bdf8] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Glass</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#86efac', 'Lawn Turf')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Lawn Turf">
+                                            <span class="w-6 h-6 rounded-md bg-[#86efac] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Grass</span>
+                                        </button>
+                                        <button onclick="setWebCADMaterial('#475569', 'Dark Charcoal Slate')" class="p-2 rounded-lg border border-slate-200 hover:border-blue-500 flex flex-col items-center group transition" title="Dark Charcoal Slate">
+                                            <span class="w-6 h-6 rounded-md bg-[#475569] border border-slate-300 group-hover:scale-110 transition shadow-sm"></span>
+                                            <span class="text-[9px] text-slate-600 mt-1 truncate">Slate</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Architectural Components -->
+                                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                    <h4 class="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center border-b border-slate-100 pb-2">
+                                        <i class="fa-solid fa-cubes text-emerald-600 mr-1.5"></i> Add 3D Components
+                                    </h4>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onclick="addWebCADComponent('door')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-door-open text-amber-700"></i>
+                                            <span>+ Door</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('window')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-table-cells-large text-cyan-500"></i>
+                                            <span>+ Window</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('column')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-monument text-slate-500"></i>
+                                            <span>+ Column</span>
+                                        </button>
+                                        <button onclick="addWebCADComponent('bed')" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center space-x-1.5 transition">
+                                            <i class="fa-solid fa-bed text-blue-500"></i>
+                                            <span>+ King Bed</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 1: BIM ARCHITECTURAL CONSTRUCTION SHEET -->
+                    <div id="showcaseTabSheet" class="p-6 sm:p-8 space-y-6 hidden">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="text-xs font-bold text-blue-600 uppercase tracking-wider">Sheet Title Block</div>
+                                <h3 class="text-xl font-extrabold text-slate-900">Sheet A-101 • Ground Floor Dimensioned Blueprint</h3>
+                                <p class="text-xs text-slate-500">Autodesk Revit Metric Template • Scale 1:50 @ A1 • Multi-Tier Dimension Strings</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-300 flex items-center">
+                                    <i class="fa-solid fa-bolt mr-1.5 text-emerald-600"></i> 1,420 Dims in 0.65s
+                                </span>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-300">
+                                    LOD 400
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Technical Architectural SVG Drawing -->
+                        <div class="bg-slate-900 rounded-2xl p-4 sm:p-6 overflow-x-auto border border-slate-800 shadow-2xl relative">
+                            <div class="absolute top-4 right-4 text-right">
+                                <div class="text-[10px] text-cyan-400 font-mono">PROJECT: TOWER 4 - REVIT BIM</div>
+                                <div class="text-[9px] text-slate-400 font-mono">STATUS: ZERO ERRORS • SYNCED</div>
+                            </div>
+                            
+                            <svg class="w-full min-w-[700px] h-[360px]" viewBox="0 0 850 420" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <!-- Grid Pattern -->
+                                    <pattern id="cadGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"/>
+                                    </pattern>
+                                    <!-- Slash Tick Marker -->
+                                    <marker id="tick" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+                                        <line x1="2" y1="8" x2="8" y2="2" stroke="#06b6d4" stroke-width="1.8"/>
+                                    </marker>
+                                    <!-- Arrow Marker -->
+                                    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                                        <path d="M 0 0 L 6 3 L 0 6 z" fill="#38bdf8"/>
+                                    </marker>
+                                </defs>
+
+                                <rect width="850" height="420" fill="#0f172a"/>
+                                <rect width="850" height="420" fill="url(#cadGrid)"/>
+
+                                <!-- Sheet Border & Title Box -->
+                                <rect x="15" y="15" width="820" height="390" fill="none" stroke="#334155" stroke-width="1.5"/>
+                                <rect x="620" y="340" width="215" height="65" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+                                <text x="630" y="358" fill="#94a3b8" font-size="9" font-family="monospace">AAI BIM ARCHITECTURE STUDIO</text>
+                                <text x="630" y="375" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">SHEET A-101 • FLOOR PLAN</text>
+                                <text x="630" y="392" fill="#38bdf8" font-size="9" font-family="monospace">SCALE: 1:50 | REVIT 2026/2027</text>
+
+                                <!-- Structural Grids (Vertical) -->
+                                <g stroke="#475569" stroke-dasharray="6,4" stroke-width="1">
+                                    <line x1="140" y1="50" x2="140" y2="330"/>
+                                    <line x1="300" y1="50" x2="300" y2="330"/>
+                                    <line x1="470" y1="50" x2="470" y2="330"/>
+                                    <line x1="610" y1="50" x2="610" y2="330"/>
+                                </g>
+
+                                <!-- Grid Heads (Top) -->
+                                <g fill="#1e293b" stroke="#0284c7" stroke-width="1.5" text-anchor="middle" font-weight="bold" font-size="11">
+                                    <circle cx="140" cy="45" r="12"/>
+                                    <text x="140" y="49" fill="#38bdf8" stroke="none">1</text>
+                                    <circle cx="300" cy="45" r="12"/>
+                                    <text x="300" y="49" fill="#38bdf8" stroke="none">2</text>
+                                    <circle cx="470" cy="45" r="12"/>
+                                    <text x="470" y="49" fill="#38bdf8" stroke="none">3</text>
+                                    <circle cx="610" cy="45" r="12"/>
+                                    <text x="610" y="49" fill="#38bdf8" stroke="none">4</text>
+                                </g>
+
+                                <!-- Structural Grids (Horizontal) -->
+                                <g stroke="#475569" stroke-dasharray="6,4" stroke-width="1">
+                                    <line x1="120" y1="120" x2="630" y2="120"/>
+                                    <line x1="120" y1="220" x2="630" y2="220"/>
+                                    <line x1="120" y1="310" x2="630" y2="310"/>
+                                </g>
+
+                                <!-- Grid Heads (Left) -->
+                                <g fill="#1e293b" stroke="#0284c7" stroke-width="1.5" text-anchor="middle" font-weight="bold" font-size="11">
+                                    <circle cx="115" cy="120" r="12"/>
+                                    <text x="115" y="124" fill="#38bdf8" stroke="none">A</text>
+                                    <circle cx="115" cy="220" r="12"/>
+                                    <text x="115" y="224" fill="#38bdf8" stroke="none">B</text>
+                                    <circle cx="115" cy="310" r="12"/>
+                                    <text x="115" y="314" fill="#38bdf8" stroke="none">C</text>
+                                </g>
+
+                                <!-- Exterior Thick Walls (Revit Core) -->
+                                <rect x="140" y="120" width="470" height="190" fill="none" stroke="#f1f5f9" stroke-width="8"/>
+                                <rect x="144" y="124" width="462" height="182" fill="rgba(30, 41, 59, 0.6)" stroke="#64748b" stroke-width="1"/>
+
+                                <!-- Interior Partition Walls -->
+                                <line x1="300" y1="124" x2="300" y2="306" stroke="#f8fafc" stroke-width="5"/>
+                                <line x1="470" y1="124" x2="470" y2="240" stroke="#f8fafc" stroke-width="5"/>
+                                <line x1="300" y1="220" x2="606" y2="220" stroke="#f8fafc" stroke-width="5"/>
+
+                                <!-- Window Cutouts on Exterior Walls -->
+                                <g fill="#38bdf8" stroke="#0284c7" stroke-width="1.5">
+                                    <rect x="190" y="117" width="60" height="6" fill="#38bdf8"/>
+                                    <rect x="360" y="117" width="80" height="6" fill="#38bdf8"/>
+                                    <rect x="520" y="117" width="60" height="6" fill="#38bdf8"/>
+                                    <rect x="607" y="160" width="6" height="40" fill="#38bdf8"/>
+                                    <rect x="607" y="250" width="6" height="40" fill="#38bdf8"/>
+                                </g>
+
+                                <!-- Doors with Opening Swings -->
+                                <g stroke="#38bdf8" stroke-width="1.2" fill="none">
+                                    <!-- Door 1 -->
+                                    <line x1="200" y1="306" x2="200" y2="276" stroke-width="2"/>
+                                    <path d="M 200 276 A 30 30 0 0 1 230 306" stroke-dasharray="3,2"/>
+                                    <!-- Door 2 (Interior) -->
+                                    <line x1="300" y1="170" x2="330" y2="170" stroke-width="2"/>
+                                    <path d="M 330 170 A 30 30 0 0 1 300 200" stroke-dasharray="3,2"/>
+                                    <!-- Door 3 (Interior) -->
+                                    <line x1="470" y1="160" x2="440" y2="160" stroke-width="2"/>
+                                    <path d="M 440 160 A 30 30 0 0 1 470 190" stroke-dasharray="3,2"/>
+                                </g>
+
+                                <!-- Room Names & Calculated Areas -->
+                                <g font-family="sans-serif" text-anchor="middle">
+                                    <text x="220" y="200" fill="#e2e8f0" font-size="11" font-weight="bold">EXECUTIVE STUDIO</text>
+                                    <text x="220" y="214" fill="#94a3b8" font-size="9" font-family="monospace">Area: 48.5 m²</text>
+                                    
+                                    <text x="385" y="165" fill="#e2e8f0" font-size="11" font-weight="bold">CONFERENCE SUITE</text>
+                                    <text x="385" y="179" fill="#94a3b8" font-size="9" font-family="monospace">Area: 36.2 m²</text>
+                                    
+                                    <text x="540" y="165" fill="#e2e8f0" font-size="11" font-weight="bold">DESIGN LAB</text>
+                                    <text x="540" y="179" fill="#94a3b8" font-size="9" font-family="monospace">Area: 32.0 m²</text>
+
+                                    <text x="450" y="265" fill="#e2e8f0" font-size="11" font-weight="bold">BIM DIGITAL TWIN HUB</text>
+                                    <text x="450" y="279" fill="#38bdf8" font-size="9" font-family="monospace">Area: 58.6 m²</text>
+                                </g>
+
+                                <!-- ============================== -->
+                                <!-- AUTONOMOUS MULTI-TIER DIMENSIONS -->
+                                <!-- ============================== -->
+
+                                <!-- Top Tier 1: Overall Exterior Dimension -->
+                                <g stroke="#06b6d4" stroke-width="1.2">
+                                    <line x1="140" y1="75" x2="610" y2="75"/>
+                                    <!-- Witness lines -->
+                                    <line x1="140" y1="70" x2="140" y2="115" stroke-dasharray="2,2"/>
+                                    <line x1="610" y1="70" x2="610" y2="115" stroke-dasharray="2,2"/>
+                                    <!-- Ticks -->
+                                    <line x1="136" y1="79" x2="144" y2="71" stroke-width="2"/>
+                                    <line x1="606" y1="79" x2="614" y2="71" stroke-width="2"/>
+                                </g>
+                                <text x="375" y="70" fill="#22d3ee" font-size="10" font-family="monospace" font-weight="bold" text-anchor="middle">
+                                    OVERALL: 18,400 mm
+                                </text>
+
+                                <!-- Top Tier 2: Structural Column Grid Bay Dimensions -->
+                                <g stroke="#0ea5e9" stroke-width="1.2">
+                                    <line x1="140" y1="92" x2="610" y2="92"/>
+                                    <line x1="140" y1="88" x2="140" y2="96"/>
+                                    <line x1="300" y1="88" x2="300" y2="96"/>
+                                    <line x1="470" y1="88" x2="470" y2="96"/>
+                                    <line x1="610" y1="88" x2="610" y2="96"/>
+                                    <!-- Ticks -->
+                                    <line x1="137" y1="95" x2="143" y2="89" stroke-width="2"/>
+                                    <line x1="297" y1="95" x2="303" y2="89" stroke-width="2"/>
+                                    <line x1="467" y1="95" x2="473" y2="89" stroke-width="2"/>
+                                    <line x1="607" y1="95" x2="613" y2="89" stroke-width="2"/>
+                                </g>
+                                <text x="220" y="88" fill="#38bdf8" font-size="9" font-family="monospace" text-anchor="middle">6,000</text>
+                                <text x="385" y="88" fill="#38bdf8" font-size="9" font-family="monospace" text-anchor="middle">6,400</text>
+                                <text x="540" y="88" fill="#38bdf8" font-size="9" font-family="monospace" text-anchor="middle">6,000</text>
+
+                                <!-- Top Tier 3: Openings and Wall Pier Dimension Chain -->
+                                <g stroke="#38bdf8" stroke-width="1">
+                                    <line x1="140" y1="106" x2="610" y2="106"/>
+                                    <!-- Ticks -->
+                                    <line x1="137" y1="109" x2="143" y2="103" stroke-width="1.5"/>
+                                    <line x1="187" y1="109" x2="193" y2="103" stroke-width="1.5"/>
+                                    <line x1="247" y1="109" x2="253" y2="103" stroke-width="1.5"/>
+                                    <line x1="357" y1="109" x2="363" y2="103" stroke-width="1.5"/>
+                                    <line x1="437" y1="109" x2="443" y2="103" stroke-width="1.5"/>
+                                    <line x1="517" y1="109" x2="523" y2="103" stroke-width="1.5"/>
+                                    <line x1="577" y1="109" x2="583" y2="103" stroke-width="1.5"/>
+                                    <line x1="607" y1="109" x2="613" y2="103" stroke-width="1.5"/>
+                                </g>
+                                <text x="165" y="103" fill="#93c5fd" font-size="8" font-family="monospace" text-anchor="middle">1,800</text>
+                                <text x="218" y="103" fill="#93c5fd" font-size="8" font-family="monospace" text-anchor="middle">2,400 (W)</text>
+                                <text x="302" y="103" fill="#93c5fd" font-size="8" font-family="monospace" text-anchor="middle">3,800</text>
+                                <text x="400" y="103" fill="#93c5fd" font-size="8" font-family="monospace" text-anchor="middle">3,200 (W)</text>
+                                <text x="548" y="103" fill="#93c5fd" font-size="8" font-family="monospace" text-anchor="middle">2,400 (W)</text>
+
+                                <!-- Left Vertical Dimension Chain -->
+                                <g stroke="#06b6d4" stroke-width="1.2">
+                                    <line x1="75" y1="120" x2="75" y2="310"/>
+                                    <line x1="70" y1="120" x2="135" y2="120" stroke-dasharray="2,2"/>
+                                    <line x1="70" y1="310" x2="135" y2="310" stroke-dasharray="2,2"/>
+                                    <!-- Ticks -->
+                                    <line x1="71" y1="116" x2="79" y2="124" stroke-width="2"/>
+                                    <line x1="71" y1="306" x2="79" y2="314" stroke-width="2"/>
+                                </g>
+                                <text x="65" y="215" fill="#22d3ee" font-size="10" font-family="monospace" font-weight="bold" transform="rotate(-90 65 215)" text-anchor="middle">
+                                    OVERALL: 12,800 mm
+                                </text>
+
+                                <!-- North Arrow CAD Graphic -->
+                                <g transform="translate(760, 90)">
+                                    <circle cx="0" cy="0" r="18" fill="#1e293b" stroke="#0ea5e9" stroke-width="1.5"/>
+                                    <path d="M 0 -14 L 6 8 L 0 4 L -6 8 Z" fill="#38bdf8"/>
+                                    <text x="0" y="-18" fill="#f8fafc" font-size="10" font-weight="bold" text-anchor="middle">N</text>
+                                </g>
+
+                                <!-- Section Marker Symbol -->
+                                <g transform="translate(140, 220)">
+                                    <circle cx="0" cy="0" r="10" fill="#0284c7" stroke="#38bdf8" stroke-width="1"/>
+                                    <text x="0" y="4" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle">A</text>
+                                    <line x1="10" y1="0" x2="25" y2="0" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <!-- Datum Elevation Level Tag -->
+                                <g transform="translate(470, 310)">
+                                    <polygon points="0,0 8,-12 -8,-12" fill="#06b6d4"/>
+                                    <line x1="-8" y1="-12" x2="50" y2="-12" stroke="#06b6d4" stroke-width="1.5"/>
+                                    <text x="10" y="-16" fill="#67e8f9" font-size="9" font-family="monospace">FFL +0.000m</text>
+                                </g>
+                            </svg>
+                        </div>
+
+                        <!-- Technical Highlights Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div class="text-xs font-bold text-slate-800 flex items-center mb-1">
+                                    <i class="fa-solid fa-crosshairs text-blue-600 mr-2"></i> Wall Faces &amp; Centerlines
+                                </div>
+                                <p class="text-xs text-slate-600">Select whether to measure from exterior face, core boundary, or geometric centerlines.</p>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div class="text-xs font-bold text-slate-800 flex items-center mb-1">
+                                    <i class="fa-solid fa-door-open text-emerald-600 mr-2"></i> Openings &amp; Clearances
+                                </div>
+                                <p class="text-xs text-slate-600">Auto-detects rough opening widths, door swings, and structural jamb pier dimensions.</p>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div class="text-xs font-bold text-slate-800 flex items-center mb-1">
+                                    <i class="fa-solid fa-arrows-rotate text-purple-600 mr-2"></i> Dynamic Model Updater
+                                </div>
+                                <p class="text-xs text-slate-600">Modifying a wall or deleting a door automatically re-calculates strings in real time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: 3D DIGITAL TWIN PARAMETRIC VIEW -->
+                    <div id="showcaseTabDigitalTwin" class="p-6 sm:p-8 space-y-6 hidden">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="text-xs font-bold text-cyan-600 uppercase tracking-wider">BIM Digital Twin Telemetry</div>
+                                <h3 class="text-xl font-extrabold text-slate-900">Advanced 3D Parametric Digital Twin</h3>
+                                <p class="text-xs text-slate-500">Continuous coordinate mesh synchronization with Autodesk Revit 2024 - 2027+</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-cyan-100 text-cyan-800 text-xs font-bold px-3 py-1 rounded-full border border-cyan-300 flex items-center animate-pulse">
+                                    <span class="w-2 h-2 rounded-full bg-cyan-600 mr-1.5"></span> LIVE REVIT UDP STREAM
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- 3D Digital Twin Visualizer -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Left: 3D Axonometric Mesh SVG -->
+                            <div class="lg:col-span-2 bg-slate-950 rounded-2xl p-6 border border-slate-800 shadow-2xl relative flex items-center justify-center min-h-[360px]">
+                                <div class="absolute top-4 left-4 z-10 flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded border border-cyan-800">
+                                        AXONOMETRIC VIEW: 30° / 60°
+                                    </span>
+                                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-800">
+                                        CLASH FREE: 0 CONFLICTS
+                                    </span>
+                                </div>
+
+                                <svg class="w-full h-[320px]" viewBox="0 0 600 320" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Digital Twin 3D Wireframe High-Rise Tower -->
+                                    <defs>
+                                        <linearGradient id="twinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.8"/>
+                                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.2"/>
+                                        </linearGradient>
+                                        <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
+                                            <stop offset="0%" stop-color="#22d3ee" stop-opacity="1"/>
+                                            <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
+                                        </radialGradient>
+                                    </defs>
+
+                                    <!-- Ground Plane Coordinate Grid -->
+                                    <g stroke="rgba(14, 165, 233, 0.15)" stroke-width="1">
+                                        <path d="M 120 250 L 300 290 L 480 250 L 300 210 Z"/>
+                                        <path d="M 60 260 L 300 310 L 540 260 L 300 210 Z"/>
+                                        <line x1="300" y1="210" x2="300" y2="310"/>
+                                        <line x1="120" y1="250" x2="480" y2="250"/>
+                                    </g>
+
+                                    <!-- Tower Structural Floors (Slabs) -->
+                                    <!-- Level 0: Ground -->
+                                    <polygon points="180,240 300,270 420,240 300,210" fill="url(#twinGrad)" stroke="#06b6d4" stroke-width="1.5"/>
+                                    <!-- Level 1: +3.60m -->
+                                    <polygon points="180,200 300,230 420,200 300,170" fill="url(#twinGrad)" stroke="#06b6d4" stroke-width="1.2"/>
+                                    <!-- Level 2: +7.20m -->
+                                    <polygon points="180,160 300,190 420,160 300,130" fill="url(#twinGrad)" stroke="#06b6d4" stroke-width="1.2"/>
+                                    <!-- Level 3: +10.80m -->
+                                    <polygon points="180,120 300,150 420,120 300,90" fill="url(#twinGrad)" stroke="#06b6d4" stroke-width="1.2"/>
+                                    <!-- Roof Level: +14.40m -->
+                                    <polygon points="180,80 300,110 420,80 300,50" fill="url(#twinGrad)" stroke="#38bdf8" stroke-width="1.8"/>
+
+                                    <!-- Vertical Structural Columns -->
+                                    <g stroke="#38bdf8" stroke-width="1.8" stroke-opacity="0.85">
+                                        <!-- Corner 1 (Left) -->
+                                        <line x1="180" y1="240" x2="180" y2="80"/>
+                                        <!-- Corner 2 (Front Center) -->
+                                        <line x1="300" y1="270" x2="300" y2="110"/>
+                                        <!-- Corner 3 (Right) -->
+                                        <line x1="420" y1="240" x2="420" y2="80"/>
+                                        <!-- Corner 4 (Back Center) -->
+                                        <line x1="300" y1="210" x2="300" y2="50" stroke-dasharray="4,3" stroke-opacity="0.4"/>
+                                    </g>
+
+                                    <!-- Intermediate Facade Mullions & Digital Twin Sensor Nodes -->
+                                    <g stroke="#0284c7" stroke-width="1" stroke-dasharray="2,2">
+                                        <line x1="240" y1="255" x2="240" y2="95"/>
+                                        <line x1="360" y1="255" x2="360" y2="95"/>
+                                    </g>
+
+                                    <!-- Digital Twin Telemetry Node Pulsing Beacons -->
+                                    <!-- Node 1: Front Entrance Sensor -->
+                                    <circle cx="300" cy="270" r="10" fill="url(#nodeGlow)"/>
+                                    <circle cx="300" cy="270" r="4" fill="#67e8f9"/>
+                                    <text x="300" y="295" fill="#67e8f9" font-size="9" font-family="monospace" text-anchor="middle">NODE 01: [0.0, 0.0, +0.00m]</text>
+
+                                    <!-- Node 2: Facade Midpoint -->
+                                    <circle cx="240" cy="175" r="8" fill="url(#nodeGlow)"/>
+                                    <circle cx="240" cy="175" r="3.5" fill="#38bdf8"/>
+                                    <text x="145" y="170" fill="#38bdf8" font-size="8" font-family="monospace">FACADE 02: 34° ALIGNED</text>
+                                    <line x1="190" y1="172" x2="235" y2="175" stroke="#38bdf8" stroke-width="0.8"/>
+
+                                    <!-- Node 3: Roof Structural Node -->
+                                    <circle cx="300" cy="110" r="10" fill="url(#nodeGlow)"/>
+                                    <circle cx="300" cy="110" r="4" fill="#a7f3d0"/>
+                                    <text x="300" y="42" fill="#a7f3d0" font-size="9" font-family="monospace" text-anchor="middle">ROOF CROWN: +14.400m</text>
+                                    <line x1="300" y1="46" x2="300" y2="105" stroke="#34d399" stroke-width="0.8" stroke-dasharray="2,2"/>
+
+                                    <!-- Live Dimension String on 3D Facade -->
+                                    <g stroke="#f59e0b" stroke-width="1.5">
+                                        <line x1="180" y1="65" x2="300" y2="95"/>
+                                        <line x1="178" y1="62" x2="182" y2="68"/>
+                                        <line x1="298" y1="92" x2="302" y2="98"/>
+                                    </g>
+                                    <text x="240" y="74" fill="#fbbf24" font-size="9" font-family="monospace" font-weight="bold">12,650 mm</text>
+                                </svg>
+                            </div>
+
+                            <!-- Right: Live Telemetry Metrics Card -->
+                            <div class="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4 shadow-xl">
+                                <div>
+                                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Model Telemetry</span>
+                                        <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">ID: #9482-REVIT</span>
+                                    </div>
+                                    
+                                    <div class="space-y-3.5 pt-4">
+                                        <div>
+                                            <div class="text-[11px] text-slate-400">LOD Standard</div>
+                                            <div class="text-sm font-bold text-white flex items-center">
+                                                <span>LOD 400 (Fabrication / As-Built)</span>
+                                                <i class="fa-solid fa-circle-check text-emerald-400 ml-2 text-xs"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[11px] text-slate-400">Total Synced Dimensions</div>
+                                            <div class="text-xl font-extrabold text-cyan-300 font-mono">1,842 References</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[11px] text-slate-400">Clash Detection Status</div>
+                                            <div class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 p-2 rounded border border-emerald-800/80">
+                                                <i class="fa-solid fa-shield mr-1.5"></i> 0 Interferences Detected
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[11px] text-slate-400">Spatial Volume Calculated</div>
+                                            <div class="text-sm font-bold text-slate-200 font-mono">14,280 m³ Enclosed</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-4 border-t border-slate-800 space-y-2">
+                                    <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                                        <span>Dynamic Model Updater:</span>
+                                        <span class="text-emerald-400 font-bold font-mono">ACTIVE (0ms lag)</span>
+                                    </div>
+                                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                        <div class="bg-gradient-to-r from-blue-500 to-cyan-400 h-full w-[94%] animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: ALIGNED & INCLINED FACADE DRAFTING -->
+                    <div id="showcaseTabAligned" class="p-6 sm:p-8 space-y-6 hidden">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="text-xs font-bold text-purple-600 uppercase tracking-wider">Multi-Angle Precision Engine</div>
+                                <h3 class="text-xl font-extrabold text-slate-900">Aligned, Curved &amp; Inclined Dimensioning</h3>
+                                <p class="text-xs text-slate-500">Eliminates distorted horizontal/vertical projection errors on angled walls and radial facades</p>
+                            </div>
+                            <span class="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full border border-purple-300">
+                                4 Specialized Modes
+                            </span>
+                        </div>
+
+                        <!-- Technical Schematics for Aligned vs Linear -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Diagram 1: Inclined Wall Aligned -->
+                            <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-xs font-bold text-purple-400">Inclined Facade Dimensioning (36.8° Angle)</div>
+                                    <span class="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">TRUE ALIGNED</span>
+                                </div>
+                                <svg class="w-full h-[180px]" viewBox="0 0 380 180" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="380" height="180" fill="#0f172a" rx="8"/>
+                                    <!-- Angled Wall -->
+                                    <g transform="rotate(25 190 90)">
+                                        <rect x="70" y="80" width="240" height="20" fill="#334155" stroke="#94a3b8" stroke-width="1.5"/>
+                                        <!-- Door & Window in angled wall -->
+                                        <rect x="130" y="80" width="30" height="20" fill="#0284c7"/>
+                                        <rect x="210" y="80" width="50" height="20" fill="#38bdf8"/>
+                                        
+                                        <!-- Aligned Dimension Line (Parallel to wall) -->
+                                        <line x1="70" y1="60" x2="310" y2="60" stroke="#a855f7" stroke-width="1.5"/>
+                                        <line x1="70" y1="55" x2="70" y2="80" stroke="#a855f7" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <line x1="310" y1="55" x2="310" y2="80" stroke="#a855f7" stroke-width="1" stroke-dasharray="2,2"/>
+                                        <!-- Ticks -->
+                                        <line x1="67" y1="63" x2="73" y2="57" stroke="#c084fc" stroke-width="2"/>
+                                        <line x1="307" y1="63" x2="313" y2="57" stroke="#c084fc" stroke-width="2"/>
+                                        <text x="190" y="52" fill="#c084fc" font-size="10" font-family="monospace" font-weight="bold" text-anchor="middle">8,650 mm (TRUE LENGTH)</text>
+                                    </g>
+                                    <text x="25" y="160" fill="#94a3b8" font-size="9" font-family="sans-serif">Witness lines perpendicular to angled wall face</text>
+                                </svg>
+                                <p class="text-xs text-slate-400 leading-relaxed">
+                                    Unlike standard plugins that default to X/Y chords, AAI 3D dynamically computes the wall normal vector and produces true aligned dimensions.
+                                </p>
+                            </div>
+
+                            <!-- Diagram 2: Curved Arc Facade -->
+                            <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-xs font-bold text-cyan-400">Curved Curtain Wall &amp; Radial Geometry</div>
+                                    <span class="text-[10px] bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded border border-cyan-800">ARC &amp; RADIUS</span>
+                                </div>
+                                <svg class="w-full h-[180px]" viewBox="0 0 380 180" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="380" height="180" fill="#0f172a" rx="8"/>
+                                    <!-- Center Point -->
+                                    <circle cx="190" cy="150" r="3" fill="#38bdf8"/>
+                                    <text x="190" y="168" fill="#94a3b8" font-size="9" font-family="monospace" text-anchor="middle">CENTER OF CURVATURE</text>
+                                    
+                                    <!-- Radial Lines -->
+                                    <line x1="190" y1="150" x2="100" y2="40" stroke="#475569" stroke-dasharray="3,3"/>
+                                    <line x1="190" y1="150" x2="280" y2="40" stroke="#475569" stroke-dasharray="3,3"/>
+
+                                    <!-- Curved Wall Arc -->
+                                    <path d="M 100 40 A 140 140 0 0 1 280 40" fill="none" stroke="#f8fafc" stroke-width="8"/>
+                                    
+                                    <!-- Radius Callout -->
+                                    <line x1="190" y1="150" x2="190" y2="10" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#arrow)"/>
+                                    <text x="200" y="80" fill="#22d3ee" font-size="10" font-family="monospace" font-weight="bold">R = 6,400 mm</text>
+                                    <text x="190" y="25" fill="#67e8f9" font-size="9" font-family="monospace" text-anchor="middle">ARC LENGTH: 7,250 mm</text>
+                                </svg>
+                                <p class="text-xs text-slate-400 leading-relaxed">
+                                    Full support for curved elements, radial arc lengths, center-point marks, and angular degrees for complex non-orthogonal architecture.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 4 Geometry Selector Pills -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                            <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-center">
+                                <i class="fa-solid fa-ruler-horizontal text-purple-600 mb-1"></i>
+                                <div class="text-xs font-bold text-slate-800">Linear Mode</div>
+                                <div class="text-[10px] text-slate-500">Orthogonal X/Y planes</div>
+                            </div>
+                            <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-center">
+                                <i class="fa-solid fa-arrows-split-up-and-left text-purple-600 mb-1"></i>
+                                <div class="text-xs font-bold text-slate-800">Aligned Mode</div>
+                                <div class="text-[10px] text-slate-500">True inclined angles</div>
+                            </div>
+                            <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-center">
+                                <i class="fa-solid fa-circle-notch text-purple-600 mb-1"></i>
+                                <div class="text-xs font-bold text-slate-800">Curved Mode</div>
+                                <div class="text-[10px] text-slate-500">Arc &amp; radius dimensions</div>
+                            </div>
+                            <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-center">
+                                <i class="fa-solid fa-bezier-curve text-purple-600 mb-1"></i>
+                                <div class="text-xs font-bold text-slate-800">Angular Mode</div>
+                                <div class="text-[10px] text-slate-500">Acute &amp; obtuse corners</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: AUTODESK AI COPILOT TELEMETRY -->
+                    <div id="showcaseTabCopilot" class="p-6 sm:p-8 space-y-6 hidden">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <div class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Revit 2027 Style AI Assistant</div>
+                                <h3 class="text-xl font-extrabold text-slate-900">Conversational Natural Language Drafting</h3>
+                                <p class="text-xs text-slate-500">Type in plain English to auto-dimension, filter, offset, and sync Revit elements</p>
+                            </div>
+                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-300">
+                                AI Copilot Engine
+                            </span>
+                        </div>
+
+                        <!-- Chat Simulator Box -->
+                        <div class="max-w-2xl mx-auto bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl p-5 space-y-4 font-sans text-sm">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-full bg-cyan-600 flex items-center justify-center text-white text-xs font-bold">
+                                        🤖
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-white text-xs">AAI Revit AI Assistant</div>
+                                        <div class="text-[10px] text-emerald-400 flex items-center">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-ping"></span>
+                                            Active in Revit Session
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">v1.0 Pro</span>
+                            </div>
+
+                            <!-- Conversation Thread -->
+                            <div class="space-y-3 pt-2">
+                                <!-- User Message 1 -->
+                                <div class="flex justify-end">
+                                    <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-sm max-w-md text-xs shadow">
+                                        Dimension all interior meeting room walls with 150mm offset and include door edge references
+                                    </div>
+                                </div>
+                                <!-- AI Response 1 -->
+                                <div class="flex justify-start">
+                                    <div class="bg-slate-800 text-slate-200 p-3.5 rounded-2xl rounded-tl-sm max-w-md text-xs space-y-2 border border-slate-700">
+                                        <div class="text-cyan-400 font-bold flex items-center">
+                                            <i class="fa-solid fa-check-circle mr-1.5"></i> Execution Complete (0.42s)
+                                        </div>
+                                        <p class="text-slate-300 leading-relaxed">
+                                            Analyzed active plan view <strong>'Level 1 - Architectural'</strong>. Identified 14 partition walls and 6 doors. Generated 28 aligned dimension references with 150mm face offset. Attached Dynamic Model Updater listener for live modifications.
+                                        </p>
+                                    </div>
+                                </div>
+                                <!-- User Message 2 -->
+                                <div class="flex justify-end">
+                                    <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-sm max-w-md text-xs shadow">
+                                        Now dimension the inclined east facade parallel to the wall
+                                    </div>
+                                </div>
+                                <!-- AI Response 2 -->
+                                <div class="flex justify-start">
+                                    <div class="bg-slate-800 text-slate-200 p-3.5 rounded-2xl rounded-tl-sm max-w-md text-xs space-y-2 border border-slate-700">
+                                        <div class="text-cyan-400 font-bold flex items-center">
+                                            <i class="fa-solid fa-compass mr-1.5"></i> Inclined Vector Calculated
+                                        </div>
+                                        <p class="text-slate-300 leading-relaxed">
+                                            Wall angle 38.2° detected. Placed true aligned dimension chain parallel to east facade. Wall true length: <strong>9,250 mm</strong>. Zero reference errors.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Developer Support Fallback Card -->
+                            <div class="bg-emerald-950/70 border border-emerald-800 rounded-xl p-3 text-xs text-emerald-200 flex items-center justify-between mt-4">
+                                <div>
+                                    <span class="font-bold text-white">Need a custom AI instruction or feature?</span>
+                                    <div class="text-[10px] text-emerald-300">Connect with Developer Aadesh Navade directly on WhatsApp.</div>
+                                </div>
+                                <a href="https://wa.me/919341102949" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow flex items-center">
+                                    <i class="fa-brands fa-whatsapp mr-1.5 text-base"></i> +91 9341102949
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Pricing Section (Phase 5 & 6) -->
+            <div id="pricingSection" class="pt-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <h2 class="text-3xl font-bold text-slate-900">Transparent Subscription Plans</h2>
+                    <p class="text-sm text-slate-600 max-w-xl mx-auto">
+                        All plans include unlimited architectural dimensioning, Autodesk AI assistant access, priority updates, and direct developer WhatsApp support.
+                    </p>
+                </div>
+
+                <!-- Plans Cards Container (Populated via JS) -->
+                <div id="plansGrid" class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                    <!-- Loading state -->
+                    <div class="col-span-3 text-center py-12 text-slate-500">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                        <div>Loading current pricing plans...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscription Terms & Refund Policy Section (Phase 9) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-8 max-w-4xl mx-auto space-y-6 shadow-sm">
+                <h3 class="text-xl font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-file-contract text-blue-600 mr-2.5"></i> Subscription Terms & Policies
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-600">
+                    <div class="space-y-2">
+                        <h4 class="font-semibold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-check-circle text-emerald-600 mr-2"></i> Subscription Details
+                        </h4>
+                        <p id="policyTermsText" class="text-xs leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            Loading subscription terms...
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        <h4 class="font-semibold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-shield-halved text-blue-600 mr-2"></i> Refund & Cancellation Policy
+                        </h4>
+                        <p id="policyRefundText" class="text-xs leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            Loading refund policy...
+                        </p>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 space-y-2 sm:space-y-0">
+                    <div>Questions about compatibility before purchasing? Contact developer directly.</div>
+                    <a id="heroSupportWa" href="https://wa.me/919341102949" target="_blank" class="text-emerald-700 font-semibold hover:underline flex items-center">
+                        <i class="fa-brands fa-whatsapp mr-1 text-emerald-600"></i> WhatsApp: +91 9341102949
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: CUSTOMER PORTAL                    -->
+        <!-- ========================================== -->
+        <section id="viewCustomer" class="hidden space-y-8">
+            <!-- Customer Auth Card (Shown when logged out) -->
+            <div id="customerAuthCard" class="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
+                <div class="bg-slate-900 text-white p-6 text-center space-y-2">
+                    <img src="/assets/logo.png" alt="AAI Logo" class="w-16 h-16 object-contain rounded-full bg-white p-1 mx-auto shadow-md border border-slate-700">
+                    <div class="text-2xl font-bold">Customer Portal</div>
+                    <div class="text-xs text-slate-400">Sign in to manage your subscription and download plugin releases</div>
+                </div>
+
+                <!-- Tabs: Login vs Register -->
+                <div class="flex border-b border-slate-200">
+                    <button id="custTabLogin" onclick="switchCustAuthTab('login')" class="flex-1 py-3 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 text-center">
+                        Sign In
+                    </button>
+                    <button id="custTabRegister" onclick="switchCustAuthTab('register')" class="flex-1 py-3 text-sm font-semibold text-slate-500 border-b-2 border-transparent text-center hover:text-slate-800">
+                        Create Account
+                    </button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="custLoginForm" onsubmit="handleCustomerLogin(event)" class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Email Address</label>
+                        <input type="email" id="custLoginEmail" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="architect@company.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Password</label>
+                        <input type="password" id="custLoginPass" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+                        Sign In to Customer Portal
+                    </button>
+                </form>
+
+                <!-- Registration Form -->
+                <form id="custRegisterForm" onsubmit="handleCustomerRegister(event)" class="p-6 space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Full Name</label>
+                        <input type="text" id="custRegName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="John Doe">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Company / Studio</label>
+                        <input type="text" id="custRegCompany" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Architecture Studio">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Email Address</label>
+                        <input type="email" id="custRegEmail" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="architect@company.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Password (Min 6 chars)</label>
+                        <input type="password" id="custRegPass" required minlength="6" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="••••••••">
+                    </div>
+                    <div class="text-xs text-slate-500 bg-slate-50 p-2.5 rounded border border-slate-200">
+                        <i class="fa-solid fa-info-circle text-blue-600 mr-1"></i> Registration creates your platform identity. Plugin access is approved by the administrator upon confirming your subscription request.
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+                        Register Account
+                    </button>
+                </form>
+            </div>
+
+            <!-- Customer Dashboard (Shown when logged in) -->
+            <div id="customerDashboard" class="hidden space-y-8">
+                <!-- User Header Bar -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-3">
+                            <h2 class="text-2xl font-bold text-slate-900" id="custDashName">Welcome, Architect</h2>
+                            <span id="custDashStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider badge-pending">Pending</span>
+                        </div>
+                        <div class="text-sm text-slate-500 flex items-center space-x-2">
+                            <span id="custDashEmail">email@example.com</span>
+                            <span>•</span>
+                            <span id="custDashId" class="font-mono text-xs text-slate-400">ID: usr_...</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="logoutCustomer()" class="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1.5"></i> Sign Out
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Approval Notice if Not Approved -->
+                <div id="custPendingNotice" class="hidden bg-amber-50 border border-amber-200 p-6 rounded-2xl space-y-3">
+                    <div class="flex items-start space-x-3">
+                        <div class="text-amber-600 text-2xl font-bold mt-0.5">⚠️</div>
+                        <div class="space-y-1 flex-1">
+                            <h3 class="font-bold text-amber-900">Account Pending Administrator Approval</h3>
+                            <p class="text-sm text-amber-800">
+                                Your account is registered, but license access has not yet been activated by the administrator. 
+                                To activate your license, choose a subscription plan below and request payment instructions.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subscription Details Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Subscription Status</div>
+                        <div class="text-xl font-bold text-slate-900" id="custStatStatus">INACTIVE</div>
+                        <div class="text-xs text-slate-500" id="custStatPlan">No active plan</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Expiry Date (UTC)</div>
+                        <div class="text-xl font-bold text-slate-900" id="custStatExpiry">--</div>
+                        <div class="text-xs text-slate-500" id="custStatRemaining">Not active</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reauth Interval</div>
+                        <div class="text-xl font-bold text-slate-900" id="custStatInterval">7 Days</div>
+                        <div class="text-xs text-slate-500">Configured by Admin</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Next Reauth Deadline</div>
+                        <div class="text-xl font-bold text-slate-900" id="custStatDeadline">--</div>
+                        <div class="text-xs text-slate-500">Silent refresh in Revit</div>
+                    </div>
+                </div>
+
+                <!-- Version Download Center (Phase 9 & Updates) -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                                <i class="fa-solid fa-cloud-arrow-down text-blue-600 mr-2"></i> Plugin Download Center
+                            </h3>
+                            <p class="text-xs text-slate-500">Download the latest or previous installer packages for Revit 2024 through 2027+</p>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-medium">All Releases</span>
+                    </div>
+
+                    <div id="custReleasesList" class="space-y-3">
+                        <div class="text-center py-6 text-slate-400 text-sm">Loading available versions...</div>
+                    </div>
+                </div>
+
+                <!-- Renewal & Purchase Request Center (Phase 6 & 8) -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                            <i class="fa-solid fa-credit-card text-emerald-600 mr-2"></i> Subscription Plans & Renewal Pricing
+                        </h3>
+                        <p class="text-xs text-slate-500">
+                            Select a plan to generate a prefilled purchase or renewal request. As an existing customer, your renewal discount is automatically applied.
+                        </p>
+                    </div>
+
+                    <div id="custPlansGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: ADMINISTRATOR PORTAL               -->
+        <!-- ========================================== -->
+        <section id="viewAdmin" class="hidden space-y-8">
+            <!-- Admin Login / Initial Setup Card -->
+            <div id="adminAuthCard" class="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
+                <div class="bg-slate-900 text-white p-6 text-center space-y-2">
+                    <img src="/assets/logo.png" alt="AAI Logo" class="w-16 h-16 object-contain rounded-full bg-white p-1 mx-auto shadow-md border border-slate-700">
+                    <div class="text-xl font-bold" id="adminAuthTitle">Administrator Portal</div>
+                    <div class="text-xs text-slate-400" id="adminAuthSubtitle">Secure access for platform operator</div>
+                </div>
+
+                <form id="adminLoginForm" onsubmit="handleAdminLogin(event)" class="p-6 space-y-4">
+                    <div id="adminSetupExtraFields" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Full Name</label>
+                            <input type="text" id="adminSetupName" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Aadesh Navade">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Admin Email</label>
+                        <input type="email" id="adminEmail" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="admin@domain.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Admin Password</label>
+                        <input type="password" id="adminPass" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="••••••••">
+                    </div>
+                    <button type="submit" id="adminSubmitBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+                        Sign In as Administrator
+                    </button>
+                </form>
+            </div>
+
+            <!-- Admin Dashboard -->
+            <div id="adminDashboard" class="hidden space-y-6">
+                <!-- Admin Header -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-3">
+                            <h2 class="text-2xl font-bold text-slate-900">Platform Administration</h2>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-purple-100 text-purple-800 border border-purple-200">Authorized Operator</span>
+                        </div>
+                        <div class="text-sm text-slate-500" id="adminUserEmail">Logged in as admin</div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="refreshAdminData()" class="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition">
+                            <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Refresh
+                        </button>
+                        <button onclick="logoutAdmin()" class="text-sm bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1.5"></i> Sign Out
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Admin Navigation Tabs -->
+                <div class="flex border-b border-slate-200 space-x-2 overflow-x-auto">
+                    <button onclick="switchAdminTab('customers')" id="tabBtnCust" class="admin-tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center">
+                        <i class="fa-solid fa-users mr-2"></i> Customers & Licenses
+                    </button>
+                    <button onclick="switchAdminTab('pricing')" id="tabBtnPrice" class="admin-tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center">
+                        <i class="fa-solid fa-indian-rupee-sign mr-2"></i> Pricing Controls (INR)
+                    </button>
+                    <button onclick="switchAdminTab('releases')" id="tabBtnRel" class="admin-tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center">
+                        <i class="fa-solid fa-box-archive mr-2"></i> Version Releases
+                    </button>
+                    <button onclick="switchAdminTab('settings')" id="tabBtnSet" class="admin-tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center">
+                        <i class="fa-solid fa-sliders mr-2"></i> Platform Settings
+                    </button>
+                    <button onclick="switchAdminTab('audit')" id="tabBtnAud" class="admin-tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center">
+                        <i class="fa-solid fa-list-check mr-2"></i> Audit Logs
+                    </button>
+                </div>
+
+                <!-- TAB 1: CUSTOMERS & LICENSES -->
+                <div id="adminTabCustomers" class="admin-tab-content space-y-6">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex-1 w-full flex items-center space-x-3">
+                            <input type="text" id="adminCustSearch" oninput="debounceCustSearch()" placeholder="Search customer email, name, or company..." class="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <select id="adminCustFilterStatus" onchange="loadAdminCustomers()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+                                <option value="ALL">All Statuses</option>
+                                <option value="ACTIVE">Active</option>
+                                <option value="INACTIVE">Inactive</option>
+                                <option value="EXPIRED">Expired</option>
+                                <option value="SUSPENDED">Suspended</option>
+                            </select>
+                        </div>
+                        <button onclick="openAddCustomerModal()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow transition flex items-center justify-center">
+                            <i class="fa-solid fa-user-plus mr-2"></i> Add Customer
+                        </button>
+                    </div>
+
+                    <!-- Customers Table -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-4">Customer</th>
+                                        <th class="px-6 py-4">Status & Approval</th>
+                                        <th class="px-6 py-4">Subscription Period</th>
+                                        <th class="px-6 py-4">Reauth Interval</th>
+                                        <th class="px-6 py-4">Last Auth / Next Deadline</th>
+                                        <th class="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminCustomersTableBody" class="divide-y divide-slate-100 text-slate-700">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: PRICING CONTROLS (INR) -->
+                <div id="adminTabPricing" class="admin-tab-content hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-lg">Subscription Plans & INR Pricing</h3>
+                                <p class="text-xs text-slate-500">Configure new customer prices, renewal discounts, and displayed terms in Indian Rupees (₹).</p>
+                            </div>
+                        </div>
+
+                        <div id="adminPricingList" class="space-y-4">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: RELEASES & VERSION MANAGEMENT -->
+                <div id="adminTabReleases" class="admin-tab-content hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-lg">Plugin Releases & Version Distribution</h3>
+                                <p class="text-xs text-slate-500">Upload new .zip installers to D:\AAI 3D\Releases. Active customers can immediately download updates.</p>
+                            </div>
+                            <button onclick="openUploadReleaseModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition">
+                                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Upload New Version
+                            </button>
+                        </div>
+
+                        <!-- Published Releases List -->
+                        <div id="adminReleasesList" class="space-y-4">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: PLATFORM SETTINGS -->
+                <div id="adminTabSettings" class="admin-tab-content hidden space-y-6">
+                    <form id="adminSettingsForm" onsubmit="saveAdminSettings(event)" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                        <div class="border-b border-slate-100 pb-4">
+                            <h3 class="font-bold text-slate-900 text-lg">Developer & Platform Settings</h3>
+                            <p class="text-xs text-slate-500">Update support contact details, developer email for purchase requests, policies, and token parameters.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Developer Name</label>
+                                <input type="text" id="setDevName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Aadesh Navade">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                                    Developer Email (For Purchase Requests)
+                                </label>
+                                <input type="email" id="setDevEmail" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="aadeshnavade@gmail.com">
+                                <span class="text-xs text-slate-400">Target email address for generated "mailto:" purchase requests.</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Developer WhatsApp Number</label>
+                                <input type="text" id="setDevWa" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="+91 9341102949">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Default Reauth Interval (Days)</label>
+                                <input type="number" id="setDefaultReauth" required min="1" max="365" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="7">
+                                <span class="text-xs text-slate-400">Default frequency customers must verify online when opening Revit.</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Offline Grace Period (Hours)</label>
+                                <input type="number" id="setOfflineGrace" required min="1" max="720" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="72">
+                                <span class="text-xs text-slate-400">How long plugin remains functional if user has no internet connection.</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Product Title</label>
+                                <input type="text" id="setProdName" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="AAI 3D">
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Subscription Terms</label>
+                                <textarea id="setTerms" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Refund & Cancellation Policy</label>
+                                <textarea id="setRefund" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"></textarea>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm shadow transition">
+                            Save Platform Settings
+                        </button>
+                    </form>
+                </div>
+
+                <!-- TAB 5: AUDIT LOGS -->
+                <div id="adminTabAudit" class="admin-tab-content hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-slate-900 text-lg">System Audit Trail</h3>
+                            <p class="text-xs text-slate-500">Immutable record of administrative license activations, renewals, interval updates, and policy edits.</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-4 py-3">Timestamp (UTC)</th>
+                                        <th class="px-4 py-3">Actor</th>
+                                        <th class="px-4 py-3">Action</th>
+                                        <th class="px-4 py-3">Target Customer</th>
+                                        <th class="px-4 py-3">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminAuditTableBody" class="divide-y divide-slate-100 text-xs text-slate-700">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <img src="/assets/logo.png" alt="AAI Logo" class="w-8 h-8 object-contain rounded-full bg-white p-0.5 shadow-sm border border-slate-700">
+                <div>
+                    <span class="font-bold text-white text-sm">AAI 3D</span>
+                    <span class="text-slate-400"> • Commercial Subscription Licensing Platform</span>
+                </div>
+            </div>
+            <div>
+                Developed by <span class="text-white font-medium">Aadesh Navade</span> | WhatsApp: <a href="https://wa.me/919341102949" target="_blank" class="text-emerald-400 hover:underline">+91 9341102949</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL 1: PURCHASE REQUEST PREVIEW (Phase 6) -->
+    <div id="modalPurchaseReq" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-envelope-open-text text-blue-600 mr-2"></i> Subscription Purchase Request
+                </h3>
+                <button onclick="closeModal('modalPurchaseReq')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-2">
+                    <div class="font-semibold text-blue-900" id="modalReqPlanTitle">Selected Plan</div>
+                    <div class="text-xs text-blue-800" id="modalReqNotice">
+                        During this release, purchase requests are handled via email. Payment is arranged directly with the developer, after which your license will be activated.
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Generated Email Content</label>
+                    <textarea id="modalReqBody" rows="8" readonly class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono bg-slate-50 text-slate-800"></textarea>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <a id="modalMailtoLink" href="#" target="_blank" class="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg text-sm text-center shadow transition flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane mr-2"></i> Open in Email App
+                    </a>
+                    <button onclick="copyPurchaseRequest()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2.5 px-4 rounded-lg text-sm transition flex items-center justify-center border border-slate-300">
+                        <i class="fa-solid fa-copy mr-2"></i> <span id="copyBtnText">Copy Details</span>
+                    </button>
+                </div>
+
+                <div class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <i class="fa-solid fa-info-circle text-blue-600 mr-1"></i> If your mail client does not open automatically, click <b>Copy Details</b> and paste into your preferred webmail (Gmail, Outlook, etc.) to send to <span id="modalDevEmailDisplay" class="font-semibold text-slate-800"></span>.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADMIN EDIT CUSTOMER LICENSE -->
+    <div id="modalAdminLicense" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-key text-blue-600 mr-2"></i> Manage Customer License
+                </h3>
+                <button onclick="closeModal('modalAdminLicense')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div class="text-xs text-slate-500">Customer Email</div>
+                    <div class="font-bold text-slate-900" id="modLicEmail">customer@example.com</div>
+                    <input type="hidden" id="modLicUserId">
+                </div>
+
+                <!-- Section: Activate / Extend Subscription -->
+                <div class="border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div class="font-bold text-slate-800 text-sm">Activate or Extend Subscription</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Plan</label>
+                            <select id="modLicPlan" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white">
+                                <option value="monthly">Monthly (1 Month)</option>
+                                <option value="quarterly">Quarterly (3 Months)</option>
+                                <option value="half_yearly">Half-Yearly (6 Months)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Add Duration</label>
+                            <select id="modLicDuration" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white">
+                                <option value="1">Extend +1 Month</option>
+                                <option value="3">Extend +3 Months</option>
+                                <option value="6">Extend +6 Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Reference / Note</label>
+                        <input type="text" id="modLicPaymentRef" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs" placeholder="e.g. Bank Ref #12345 / Confirmed via email">
+                    </div>
+                    <button onclick="executeLicenseActivation()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded text-xs shadow transition">
+                        Confirm & Extend Subscription
+                    </button>
+                </div>
+
+                <!-- Section: Reauthentication Interval -->
+                <div class="border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div class="font-bold text-slate-800 text-sm">Reauthentication Interval (Days)</div>
+                    <p class="text-xs text-slate-500">Change how frequently this customer must verify online without rebuilding the plugin.</p>
+                    <div class="flex items-center space-x-3">
+                        <input type="number" id="modLicInterval" min="1" max="365" class="w-28 px-2.5 py-1.5 border border-slate-300 rounded text-xs" placeholder="7">
+                        <button onclick="executeReauthIntervalUpdate()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded text-xs shadow transition">
+                            Update Interval
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Section: Suspension / Revocation -->
+                <div class="border border-rose-200 bg-rose-50/50 rounded-xl p-4 space-y-3">
+                    <div class="font-bold text-rose-900 text-sm">License Access Control</div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="executeStatusChange('ACTIVE')" class="flex-1 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold py-1.5 rounded text-xs transition">
+                            Set Active
+                        </button>
+                        <button onclick="executeStatusChange('SUSPENDED')" class="flex-1 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold py-1.5 rounded text-xs transition">
+                            Suspend
+                        </button>
+                        <button onclick="executeStatusChange('REVOKED')" class="flex-1 bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold py-1.5 rounded text-xs transition">
+                            Revoke
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADD CUSTOMER MODAL -->
+    <div id="modalAddCustomer" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900">Add Customer Account</h3>
+                <button onclick="closeModal('modalAddCustomer')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+            <form id="formAddCustomer" onsubmit="executeAddCustomer(event)" class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Customer Email</label>
+                    <input type="email" id="newCustEmail" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm" placeholder="customer@studio.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Full Name</label>
+                    <input type="text" id="newCustName" class="w-full px-3 py-2 border border-slate-300 rounded text-sm" placeholder="Jane Doe">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Company</label>
+                    <input type="text" id="newCustCompany" class="w-full px-3 py-2 border border-slate-300 rounded text-sm" placeholder="Studio BIM">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Customer Password</label>
+                    <input type="text" id="newCustPassword" value="Password123!" required minlength="6" class="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono text-blue-600 font-semibold" placeholder="Set password for customer">
+                    <p class="text-[10px] text-slate-500 mt-0.5">The customer will use this password to sign into the Revit plugin.</p>
+                </div>
+                <div class="flex items-center space-x-2 pt-2">
+                    <input type="checkbox" id="newCustApprove" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <label for="newCustApprove" class="text-xs text-slate-700 font-medium">Immediately approve customer for plugin access</label>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm shadow transition mt-2">
+                    Create Customer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: SET / RESET CUSTOMER PASSWORD -->
+    <div id="modalResetPassword" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-slate-900">Set Customer Password</h3>
+                <button onclick="closeModal('modalResetPassword')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+            <form onsubmit="executeResetCustomerPassword(event)" class="space-y-3 text-sm">
+                <input type="hidden" id="resetPassUserId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Customer Account</label>
+                    <div id="resetPassEmail" class="font-bold text-xs text-blue-600 truncate bg-slate-50 p-2.5 rounded border border-slate-200"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">New Password (Min 6 chars)</label>
+                    <input type="text" id="resetPassValue" required minlength="6" value="Password123!" class="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono text-blue-600 font-semibold">
+                    <p class="text-[10px] text-slate-500 mt-0.5">Customer uses this to log into the Revit plugin or Web portal.</p>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm shadow transition mt-2">
+                    Update Password
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: UPLOAD RELEASE MODAL -->
+    <div id="modalUploadRelease" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900">Publish New Plugin Version</h3>
+                <button onclick="closeModal('modalUploadRelease')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+            <form id="formUploadRelease" onsubmit="executeUploadRelease(event)" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Version Number</label>
+                    <input type="text" id="relVerNum" required class="w-full px-3 py-2 border border-slate-300 rounded text-sm" placeholder="1.1.0">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Min Revit Version</label>
+                        <input type="text" id="relMinRevit" value="2024" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Max Revit Version</label>
+                        <input type="text" id="relMaxRevit" value="2027+" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Installer Zip Package (.zip)</label>
+                    <input type="file" id="relPackageFile" required accept=".zip" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Release Notes / Changelog</label>
+                    <textarea id="relNotes" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" placeholder="What's new in this release..."></textarea>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm shadow transition">
+                    Publish Version to D:\AAI 3D\Releases
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Floating Ambient Audio Widget -->
+    <div id="ambientAudioWidget" class="fixed bottom-5 right-5 z-50 bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center space-x-3 transition-all duration-300">
+        <div class="flex items-center space-x-1 h-5" id="audioWaveVisualizer">
+            <span class="w-1 bg-cyan-400 rounded-full animate-bounce h-3"></span>
+            <span class="w-1 bg-blue-400 rounded-full animate-bounce h-5" style="animation-delay: 150ms"></span>
+            <span class="w-1 bg-cyan-300 rounded-full animate-bounce h-2" style="animation-delay: 300ms"></span>
+            <span class="w-1 bg-blue-500 rounded-full animate-bounce h-4" style="animation-delay: 450ms"></span>
+        </div>
+        <div class="text-xs">
+            <div class="font-bold text-slate-100 flex items-center">
+                <span>Ambient BIM Sound</span>
+                <span id="audioStatusBadge" class="ml-1.5 text-[9px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">ACTIVE</span>
+            </div>
+            <div class="text-[10px] text-slate-400">Click anywhere to start • Drums on buttons</div>
+        </div>
+        <button id="toggleAudioBtn" onclick="toggleAmbientMusic()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 transition" title="Mute/Play Ambient Music">
+            <i id="audioIcon" class="fa-solid fa-volume-high text-xs"></i>
+        </button>
+    </div>
+
+    <!-- Frontend Script -->
+    <script src="/app.js"></script>
+</body>
+</html>
+

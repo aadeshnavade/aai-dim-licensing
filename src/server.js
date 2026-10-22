@@ -37,9 +37,14 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Dedicated Full-Screen AadiSketch Pro Web Application
-app.get(['/app', '/sketch', '/aadisketch', '/studio'], (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
+// Dedicated CADSketch Pro Web Application routes
+app.get(['/cadsketch', '/sketch', '/app', '/modeler', '/studio'], (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// Licensing & Subscription Portal
+app.get(['/licensing', '/pricing', '/portal'], (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'licensing.html'));
 });
 
 // Single Page Application fallback for web navigation
