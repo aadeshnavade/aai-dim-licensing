@@ -195,39 +195,41 @@ function seedDefaultData() {
         insertSetting.run(k, v, now);
     }
 
-    // 3. Seed Primary Administrator (Aadesh Navade)
-    const adminEmail = 'aadeshnavade@gmail.com';
+    // 3. Seed Primary Administrators (Aadesh Navade)
+    const adminEmails = ['aadeshnavade7@gmail.com', 'aadeshnavade@gmail.com'];
     const passwordHash = bcrypt.hashSync('AdminPassword123!', 10);
 
-    const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
-    let masterUserId = existingAdmin ? existingAdmin.id : 'usr_admin_master';
+    for (const adminEmail of adminEmails) {
+        const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+        const masterUserId = existingAdmin ? existingAdmin.id : 'usr_admin_' + adminEmail.replace(/[^a-zA-Z0-9]/g, '_');
 
-    if (!existingAdmin) {
-        db.prepare(`
-            INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
-            VALUES (?, ?, ?, 'Aadesh Navade', 'Ancient Advanced India', 'super_admin', 1, ?, ?)
-        `).run(masterUserId, adminEmail, passwordHash, now, now);
-    } else {
-        db.prepare(`
-            UPDATE users SET password_hash = ?, role = 'super_admin', is_approved = 1, updated_at = ?
-            WHERE id = ?
-        `).run(passwordHash, now, masterUserId);
-    }
+        if (!existingAdmin) {
+            db.prepare(`
+                INSERT INTO users (id, email, password_hash, full_name, company, role, is_approved, created_at, updated_at)
+                VALUES (?, ?, ?, 'Aadesh Navade', 'Ancient Advanced India', 'super_admin', 1, ?, ?)
+            `).run(masterUserId, adminEmail, passwordHash, now, now);
+        } else {
+            db.prepare(`
+                UPDATE users SET password_hash = ?, role = 'super_admin', is_approved = 1, updated_at = ?
+                WHERE id = ?
+            `).run(passwordHash, now, masterUserId);
+        }
 
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 10);
 
-    const masterSub = db.prepare('SELECT id FROM subscriptions WHERE user_id = ?').get(masterUserId);
-    if (!masterSub) {
-        db.prepare(`
-            INSERT INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
-            VALUES (?, ?, 'ACTIVE', 'yearly', ?, ?, 365, ?, ?)
-        `).run('sub_admin_master', masterUserId, now, expiryDate.toISOString(), now, now);
-    } else {
-        db.prepare(`
-            UPDATE subscriptions SET status = 'ACTIVE', expiry_date = ?, reauth_interval_days = 365, updated_at = ?
-            WHERE user_id = ?
-        `).run(expiryDate.toISOString(), now, masterUserId);
+        const masterSub = db.prepare('SELECT id FROM subscriptions WHERE user_id = ?').get(masterUserId);
+        if (!masterSub) {
+            db.prepare(`
+                INSERT INTO subscriptions (id, user_id, status, plan_code, start_date, expiry_date, reauth_interval_days, created_at, updated_at)
+                VALUES (?, ?, 'ACTIVE', 'yearly', ?, ?, 365, ?, ?)
+            `).run('sub_' + masterUserId, masterUserId, now, expiryDate.toISOString(), now, now);
+        } else {
+            db.prepare(`
+                UPDATE subscriptions SET status = 'ACTIVE', expiry_date = ?, reauth_interval_days = 365, updated_at = ?
+                WHERE user_id = ?
+            `).run(expiryDate.toISOString(), now, masterUserId);
+        }
     }
 
     // Secondary test accounts
@@ -282,50 +284,76 @@ function seedDefaultData() {
         }
     }
 
-    // 4. Seed Latest Release: AAI 3D Setup 1.0.0.exe
+    // 4. Seed Latest Releases (Revit Plugin v1.1.0 and Desktop Setup)
     const possibleDirs = [
         path.join(process.cwd(), 'releases'),
         path.join(__dirname, '..', '..', 'releases'),
         path.join(__dirname, '..', '..', '..', 'Releases')
     ];
 
-    let foundInstaller = null;
-    let foundFileName = 'AAI 3D Setup 1.0.0.exe';
-    for (const d of possibleDirs) {
-        const testPath = path.join(d, foundFileName);
-        if (fs.existsSync(testPath)) {
-            foundInstaller = testPath;
-            break;
+    const releaseFiles = [
+        {
+            id: 'rel_v1.1.0',
+            version: '1.1.0',
+            fileName: 'AAI_DIM_v1.1.0_Setup.zip',
+            minRevit: '2024',
+            maxRevit: '2027+',
+            notes: 'AAI DIM v1.1.0 for Autodesk Revit (2024-2027+): AI Assistant multi-LLM (Gemini, ChatGPT, Claude, Grok), native Revit Assistant, 4-tier progressive hierarchy, auto room clearances, text collision avoidance.'
+        },
+        {
+            id: 'rel_v1.0.0_exe',
+            version: '1.0.0',
+            fileName: 'AAI 3D Setup 1.0.0.exe',
+            minRevit: 'Win10',
+            maxRevit: 'Win11',
+            notes: 'AAI 3D Desktop Studio: Standalone 3D Modeler & BIM Suite.'
         }
-    }
+    ];
 
-    if (foundInstaller) {
-        const stats = fs.statSync(foundInstaller);
-        db.prepare('UPDATE releases SET is_active = 0 WHERE version_number != ?').run('1.0.0');
+    for (const rel of releaseFiles) {
+        let foundPath = null;
+        for (const d of possibleDirs) {
+            const testPath = path.join(d, rel.fileName);
+            if (fs.existsSync(testPath)) {
+                foundPath = testPath;
+                break;
+            }
+        }
 
-        const upsertRelease = db.prepare(`
-            INSERT INTO releases
-            (id, version_number, release_date, min_revit_version, max_revit_version, file_path, file_name, file_size_bytes, release_notes, is_active, is_mandatory, created_at)
-            VALUES (?, ?, ?, 'Win10', 'Win11', ?, ?, ?, ?, 1, 0, ?)
-            ON CONFLICT(version_number) DO UPDATE SET
-                file_path = excluded.file_path,
-                file_name = excluded.file_name,
-                file_size_bytes = excluded.file_size_bytes,
-                release_notes = excluded.release_notes,
-                is_active = 1,
-                release_date = excluded.release_date
-        `);
+        // Always register the release if file is found or if it's our flagship v1.1.0
+        if (foundPath || rel.version === '1.1.0') {
+            const filePath = foundPath || path.join(process.cwd(), 'releases', rel.fileName);
+            let size = 155909;
+            try {
+                if (fs.existsSync(filePath)) size = fs.statSync(filePath).size;
+            } catch {}
 
-        upsertRelease.run(
-            'rel_v1.0.0',
-            '1.0.0',
-            now,
-            foundInstaller,
-            foundFileName,
-            stats.size,
-            'AAI 3D v1.0.0: Autonomous AI Architectural Modeler with direct on-screen SketchUp-style Push/Pull editing, Revit-style detailing & auto-dimensioning, 9-zone Vastu Shastra engine, and buildingSMART IFC 4.3 export.',
-            now
-        );
+            const upsertRelease = db.prepare(`
+                INSERT INTO releases
+                (id, version_number, release_date, min_revit_version, max_revit_version, file_path, file_name, file_size_bytes, release_notes, is_active, is_mandatory, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)
+                ON CONFLICT(version_number) DO UPDATE SET
+                    file_path = excluded.file_path,
+                    file_name = excluded.file_name,
+                    file_size_bytes = excluded.file_size_bytes,
+                    release_notes = excluded.release_notes,
+                    is_active = 1,
+                    release_date = excluded.release_date
+            `);
+
+            upsertRelease.run(
+                rel.id,
+                rel.version,
+                now,
+                rel.minRevit,
+                rel.maxRevit,
+                filePath,
+                rel.fileName,
+                size,
+                rel.notes,
+                now
+            );
+        }
     }
 }
 

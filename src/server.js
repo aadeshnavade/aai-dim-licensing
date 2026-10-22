@@ -42,6 +42,11 @@ app.get(['/cadsketch', '/sketch', '/app', '/modeler', '/studio'], (req, res) => 
     res.sendFile(path.join(__dirname, '..', 'public', 'cadsketch.html'));
 });
 
+// Direct download route for the Revit plugin setup package
+app.get('/download', (req, res) => {
+    res.redirect('/api/v1/releases/download-latest');
+});
+
 // Licensing & Subscription Portal
 app.get(['/licensing', '/pricing', '/portal'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

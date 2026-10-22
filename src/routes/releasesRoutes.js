@@ -87,6 +87,36 @@ router.get('/available', (req, res) => {
 });
 
 /**
+ * Public Direct Download Route for website users (Flagship Revit Plugin Package)
+ */
+router.get(['/download-latest', '/direct-download'], (req, res) => {
+    const rel = db.prepare('SELECT * FROM releases WHERE is_active = 1 ORDER BY created_at DESC').get();
+    const fileName = rel ? rel.file_name : 'AAI_DIM_v1.1.0_Setup.zip';
+
+    const candidatePaths = [
+        path.resolve(process.cwd(), 'releases', fileName),
+        path.resolve(__dirname, '../../releases', fileName),
+        path.resolve(process.cwd(), 'public', 'downloads', fileName),
+        rel ? rel.file_path : null,
+        path.resolve(__dirname, '../../../Releases', fileName)
+    ];
+
+    let resolvedPath = null;
+    for (const p of candidatePaths) {
+        if (p && fs.existsSync(p)) {
+            resolvedPath = p;
+            break;
+        }
+    }
+
+    if (!resolvedPath) {
+        return res.status(404).send('Release package file is currently being prepared on server.');
+    }
+
+    res.download(resolvedPath, fileName);
+});
+
+/**
  * Download a specific version installer package (.zip)
  * Requires active subscription or admin session (via Authorization header or ?token= query param)
  */
