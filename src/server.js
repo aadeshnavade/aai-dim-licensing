@@ -39,12 +39,12 @@ app.get('/health', (req, res) => {
 
 // Dedicated CADSketch Pro Web Application routes
 app.get(['/cadsketch', '/sketch', '/app', '/modeler', '/studio'], (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'cadsketch.html'));
 });
 
 // Licensing & Subscription Portal
 app.get(['/licensing', '/pricing', '/portal'], (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'licensing.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // Single Page Application fallback for web navigation

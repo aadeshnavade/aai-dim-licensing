@@ -27,10 +27,9 @@
             }
         }
     </script>
-    <!-- Three.js Local Engine & AadiSketch App Core -->
+    <!-- Three.js Local Engine & CADSketch Engine -->
     <script src="/three.min.js"></script>
-    <script src="/aadisketch_app.js"></script>
-    <script src="/aadisketch_web.js"></script>
+    <script src="/cadsketch.js"></script>
     <style>
         .badge-active { @apply bg-emerald-100 text-emerald-800 border border-emerald-300; }
         .badge-expired { @apply bg-amber-100 text-amber-800 border border-amber-300; }
@@ -153,8 +152,8 @@
                 </div>
 
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-3.5 py-2 rounded-lg text-sm shadow-md transition flex items-center border border-cyan-400/30">
-                        <i class="fa-solid fa-cube text-cyan-200 mr-1.5"></i> Launch AadiSketch Pro
+                    <a href="/cadsketch" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-3.5 py-2 rounded-lg text-sm shadow-md transition flex items-center border border-cyan-400/30">
+                        <i class="fa-solid fa-cube text-cyan-200 mr-1.5"></i> Launch CADSketch 3D
                     </a>
                     <button onclick="showView('pricing')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:text-cyan-400 hover:bg-slate-800 transition">
                         <i class="fa-solid fa-tag mr-1.5"></i> Pricing & Plans
@@ -200,9 +199,9 @@
                     SketchUp-style direct on-screen Push/Pull modeling combined with Revit-style precision detailing, auto-dimensioning, 9-zone Vastu Shastra analysis, and buildingSMART IFC 4.3 export.
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-                    <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-base px-8 py-3.5 rounded-xl shadow-xl hover:shadow-cyan-500/30 transition flex items-center space-x-2.5">
+                    <a href="/cadsketch" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-base px-8 py-3.5 rounded-xl shadow-xl hover:shadow-cyan-500/30 transition flex items-center space-x-2.5">
                         <i class="fa-solid fa-cube text-cyan-200 text-lg"></i>
-                        <span>Launch Full-Screen AadiSketch App</span>
+                        <span>Launch Full-Screen CADSketch Pro</span>
                     </a>
                     <button onclick="scrollToPlans()" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-6 py-3 rounded-xl shadow-sm transition">
                         View Subscription Plans
@@ -266,7 +265,7 @@
                 <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto p-1.5 bg-slate-200/90 rounded-2xl backdrop-blur-sm border border-slate-300 shadow-inner">
                     <button id="showcaseTab1Btn" onclick="switchShowcaseTab('aadisketch')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm bg-blue-600 text-white flex items-center space-x-2">
                         <i class="fa-solid fa-cube text-cyan-300"></i>
-                        <span>AadiSketch 3D Modeler (Live Studio)</span>
+                        <span>CADSketch 3D Modeler (Live Studio)</span>
                     </button>
                     <button id="showcaseTab2Btn" onclick="switchShowcaseTab('sheet')" class="tab-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-700 hover:text-slate-900 hover:bg-white/80 flex items-center space-x-2">
                         <i class="fa-solid fa-file-lines text-cyan-500"></i>
@@ -295,7 +294,7 @@
                                     <span class="bg-cyan-100 text-cyan-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-cyan-300">PURE SKETCHUP CORE</span>
                                     <span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">REVIT MOUSE CONTROLS</span>
                                 </div>
-                                <h3 class="text-xl sm:text-2xl font-black text-slate-900">AadiSketch Pro • Web 3D Modeling Studio</h3>
+                                <h3 class="text-xl sm:text-2xl font-black text-slate-900">CADSketch Pro • Web 3D Modeling Studio</h3>
                                 <p class="text-xs text-slate-500">Click &amp; Push/Pull directly on screen • Inference Axis Snapping (Red/Green/Blue) • 3D ViewCube &amp; Precision Measurements</p>
                             </div>
                             <div class="flex items-center space-x-2">
@@ -305,8 +304,8 @@
                                 <button onclick="clearWebCADModel()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-lg border border-rose-200 transition flex items-center">
                                     <i class="fa-solid fa-trash-can mr-1.5"></i> Clear
                                 </button>
-                                <a href="/app" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
-                                    <i class="fa-solid fa-up-right-from-square mr-1.5"></i> Full-Screen App (/app)
+                                <a href="/cadsketch" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
+                                    <i class="fa-solid fa-up-right-from-square mr-1.5"></i> Full-Screen CAD (/cadsketch)
                                 </a>
                                 <a href="https://github.com/aadeshnavade/aai-dim-licensing/releases" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center">
                                     <i class="fa-solid fa-download mr-1.5"></i> Desktop .exe

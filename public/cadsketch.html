@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CADSketch Pro — Google SketchUp 3D Modeler</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/cadsketch.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="appRoot">
+
+    <!-- 1. AUTHENTIC SKETCHUP MENU BAR -->
+    <nav class="su-menu-bar">
+      <a href="/" style="background:#0284c7; color:#fff; font-size:10px; font-weight:700; padding:3px 9px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; margin-right:12px; transition:background 0.15s;" title="Return to AI DIM Licensing Platform"><i class="fa-solid fa-arrow-left"></i> AI DIM Licensing</a>
+      <div class="su-brand">
+        <i class="fa-solid fa-cube"></i> CADSketch Pro
+      </div>
+
+      <div class="su-menu-item">
+        <span>File</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuNew">New Model <span class="shortcut">Ctrl+N</span></div>
+          <div class="su-dropdown-item" id="menuSample">Load Sample Villa <span class="shortcut">Ctrl+O</span></div>
+          <div class="su-dropdown-item" id="menuSave">Save Model (.json) <span class="shortcut">Ctrl+S</span></div>
+          <div class="su-dropdown-separator"></div>
+          <div class="su-dropdown-item" id="menuExportOBJ">Export 3D Model (OBJ)...</div>
+          <div class="su-dropdown-item" id="menuScreenshot">Export Viewport (PNG)...</div>
+          <div class="su-dropdown-separator"></div>
+          <a href="/" style="text-decoration:none;" class="su-dropdown-item">Return to AI DIM Licensing...</a>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Edit</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuUndo">Undo <span class="shortcut">Ctrl+Z</span></div>
+          <div class="su-dropdown-item" id="menuRedo">Redo <span class="shortcut">Ctrl+Y</span></div>
+          <div class="su-dropdown-separator"></div>
+          <div class="su-dropdown-item" id="menuClear">Clear Model <span class="shortcut">Del</span></div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>View</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuToggleCuts">Section Cuts <span class="shortcut">Shift+C</span></div>
+          <div class="su-dropdown-item" id="menuTogglePlanes">Section Planes</div>
+          <div class="su-dropdown-separator"></div>
+          <div class="su-dropdown-item" id="menuStyleClassic">Style: SketchUp Default</div>
+          <div class="su-dropdown-item" id="menuStyleShaded">Style: Shaded Textures</div>
+          <div class="su-dropdown-item" id="menuStyleMono">Style: Monochrome</div>
+          <div class="su-dropdown-item" id="menuStyleXray">Style: X-Ray Translucent</div>
+          <div class="su-dropdown-item" id="menuStyleWire">Style: Wireframe</div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Camera</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuCamOrbit">Orbit <span class="shortcut">O</span></div>
+          <div class="su-dropdown-item" id="menuCamPan">Pan <span class="shortcut">H</span></div>
+          <div class="su-dropdown-item" id="menuCamZoom">Zoom <span class="shortcut">Z</span></div>
+          <div class="su-dropdown-item" id="menuCamZoomExtents">Zoom Extents <span class="shortcut">Shift+Z</span></div>
+          <div class="su-dropdown-separator"></div>
+          <div class="su-dropdown-item" id="menuViewIso">Standard: Iso 3D</div>
+          <div class="su-dropdown-item" id="menuViewTop">Standard: Top (Plan)</div>
+          <div class="su-dropdown-item" id="menuViewFront">Standard: Front Elevation</div>
+          <div class="su-dropdown-item" id="menuViewRight">Standard: Right Elevation</div>
+          <div class="su-dropdown-item" id="menuViewBack">Standard: Back Elevation</div>
+          <div class="su-dropdown-item" id="menuViewLeft">Standard: Left Elevation</div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Draw</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuDrawLine">Line <span class="shortcut">L</span></div>
+          <div class="su-dropdown-item" id="menuDrawArc">2-Point Arc <span class="shortcut">A</span></div>
+          <div class="su-dropdown-item" id="menuDrawRect">Rectangle <span class="shortcut">R</span></div>
+          <div class="su-dropdown-item" id="menuDrawCircle">Circle <span class="shortcut">C</span></div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Tools</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuToolSelect">Select <span class="shortcut">Space</span></div>
+          <div class="su-dropdown-item" id="menuToolEraser">Eraser <span class="shortcut">E</span></div>
+          <div class="su-dropdown-item" id="menuToolPaint">Paint Bucket <span class="shortcut">B</span></div>
+          <div class="su-dropdown-item" id="menuToolPushPull">Push/Pull <span class="shortcut">P</span></div>
+          <div class="su-dropdown-item" id="menuToolOffset">Offset <span class="shortcut">F</span></div>
+          <div class="su-dropdown-item" id="menuToolTape">Tape Measure <span class="shortcut">T</span></div>
+          <div class="su-dropdown-item" id="menuToolSection">Section Plane</div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Window</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuToggleTray">Default Tray Toggle</div>
+          <div class="su-dropdown-item" id="menuOpenEntityInfo">Entity Info</div>
+          <div class="su-dropdown-item" id="menuOpenMaterials">Materials</div>
+          <div class="su-dropdown-item" id="menuOpenComponents">Components</div>
+          <div class="su-dropdown-item" id="menuOpenStyles">Styles</div>
+          <div class="su-dropdown-item" id="menuOpenModelInfo">Model Info</div>
+        </div>
+      </div>
+
+      <div class="su-menu-item">
+        <span>Help</span>
+        <div class="su-dropdown">
+          <div class="su-dropdown-item" id="menuAbout">About CADSketch Pro</div>
+          <div class="su-dropdown-item" id="menuControls">Mouse & Keyboard Guide</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 2. TOP TOOLBAR -->
+    <header class="su-toolbar">
+      <div class="su-toolbar-group">
+        <button class="su-btn" id="btnNew" title="New Model (Ctrl+N)"><i class="fa-solid fa-file"></i></button>
+        <button class="su-btn" id="btnSample" title="Load Sample Villa"><i class="fa-solid fa-house-chimney"></i></button>
+        <button class="su-btn" id="btnSave" title="Save Project (Ctrl+S)"><i class="fa-solid fa-floppy-disk"></i></button>
+      </div>
+
+      <div class="su-toolbar-group">
+        <button class="su-btn" id="btnUndo" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+        <button class="su-btn" id="btnRedo" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+      </div>
+
+      <!-- Standard Views -->
+      <div class="su-toolbar-group">
+        <button class="su-btn" id="btnViewIso" title="Isometric 3D View"><i class="fa-solid fa-cube"></i></button>
+        <button class="su-btn" id="btnViewTop" title="Top Plan View"><i class="fa-solid fa-square"></i></button>
+        <button class="su-btn" id="btnViewFront" title="Front Elevation"><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="su-btn" id="btnViewRight" title="Right Elevation"><i class="fa-solid fa-arrow-right"></i></button>
+        <button class="su-btn" id="btnViewBack" title="Back Elevation"><i class="fa-solid fa-arrow-down"></i></button>
+        <button class="su-btn" id="btnViewLeft" title="Left Elevation"><i class="fa-solid fa-arrow-left"></i></button>
+      </div>
+
+      <!-- Camera & Navigation -->
+      <div class="su-toolbar-group">
+        <button class="su-btn" id="btnZoomExtents" title="Zoom Extents (Shift+Z)"><i class="fa-solid fa-expand"></i></button>
+        <button class="su-btn" id="btnToggleSectionCuts" title="Toggle Section Cuts"><i class="fa-solid fa-scissors"></i></button>
+      </div>
+
+      <!-- Units Switcher -->
+      <div class="su-toolbar-group">
+        <select class="su-select-units" id="unitSelector" title="Unit System">
+          <option value="m">Meters (m)</option>
+          <option value="mm">Millimeters (mm)</option>
+          <option value="ft">Feet (ft)</option>
+          <option value="in">Inches (in)</option>
+        </select>
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="su-toolbar-group" style="margin-left:auto; border-right:none;">
+        <button class="su-btn su-btn-text" id="btnExportOBJ" title="Export Wavefront OBJ 3D Model">
+          <i class="fa-solid fa-download"></i> Export OBJ
+        </button>
+        <button class="su-btn su-btn-text" id="btnScreenshot" title="Capture High-Res Viewport PNG">
+          <i class="fa-solid fa-camera"></i> Screenshot
+        </button>
+      </div>
+    </header>
+
+    <!-- 3. MAIN WORKSPACE CONTAINER -->
+    <div class="su-main-container">
+
+      <!-- LARGE TOOL SET (LEFT SIDEBAR) -->
+      <aside class="su-large-toolset">
+        <!-- Row 1 -->
+        <button class="su-tool-btn active" id="toolSelect" title="Select Tool (Space)"><i class="fa-solid fa-arrow-pointer"></i></button>
+        <button class="su-tool-btn" id="toolEraser" title="Eraser Tool (E)"><i class="fa-solid fa-eraser"></i></button>
+
+        <!-- Row 2 -->
+        <button class="su-tool-btn" id="toolPaint" title="Paint Bucket (B)"><i class="fa-solid fa-fill-drip"></i></button>
+        <button class="su-tool-btn" id="toolLine" title="Line Tool (L)"><i class="fa-solid fa-pencil"></i></button>
+
+        <!-- Row 3 -->
+        <button class="su-tool-btn" id="toolArc" title="2-Point Arc Tool (A)"><i class="fa-solid fa-bezier-curve"></i></button>
+        <button class="su-tool-btn" id="toolRect" title="Rectangle Tool (R)"><i class="fa-regular fa-square"></i></button>
+
+        <!-- Row 4 -->
+        <button class="su-tool-btn" id="toolCircle" title="Circle Tool (C)"><i class="fa-regular fa-circle"></i></button>
+        <button class="su-tool-btn" id="toolPushPull" title="Push/Pull Extrusion (P)"><i class="fa-solid fa-up-down"></i></button>
+
+        <!-- Row 5 -->
+        <button class="su-tool-btn" id="toolOffset" title="Offset Tool (F)"><i class="fa-solid fa-clone"></i></button>
+        <button class="su-tool-btn" id="toolMove" title="Move Tool (M)"><i class="fa-solid fa-arrows-up-down-left-right"></i></button>
+
+        <!-- Row 6 -->
+        <button class="su-tool-btn" id="toolRotate" title="Rotate Tool (Q)"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button class="su-tool-btn" id="toolScale" title="Scale Tool (S)"><i class="fa-solid fa-expand"></i></button>
+
+        <div class="su-tool-separator"></div>
+
+        <!-- Row 7 -->
+        <button class="su-tool-btn" id="toolTape" title="Tape Measure Tool (T)"><i class="fa-solid fa-ruler-combined"></i></button>
+        <button class="su-tool-btn" id="toolDimension" title="Dimension Tool (D)"><i class="fa-solid fa-ruler-horizontal"></i></button>
+
+        <!-- Row 8 -->
+        <button class="su-tool-btn" id="toolSection" title="Section Plane Tool"><i class="fa-solid fa-crop-simple"></i></button>
+        <button class="su-tool-btn" id="toolClearCanvas" title="Clear Canvas"><i class="fa-solid fa-trash-can"></i></button>
+      </aside>
+
+      <!-- 3D VIEWPORT CONTAINER -->
+      <main class="su-viewport-container" id="viewportContainer">
+        <div id="threeCanvasContainer"></div>
+
+        <!-- Active Tool HUD -->
+        <div class="su-active-tool-hud" id="activeToolHud">
+          <i class="fa-solid fa-arrow-pointer"></i>
+          <span>Active: <span class="tool-name" id="hudToolName">Select</span></span>
+        </div>
+
+        <div class="su-inference-pill" id="inferencePill">
+          <i class="fa-solid fa-crosshairs"></i>
+          <span id="inferenceText">Endpoint</span>
+        </div>
+
+        <!-- 3D VIEWCUBE HUD -->
+        <div class="su-viewcube-hud" id="viewCubeHUD">
+          <div class="viewcube-wrapper">
+            <!-- Compass Ring -->
+            <div class="viewcube-compass">
+              <span class="compass-label compass-n">N</span>
+              <span class="compass-label compass-s">S</span>
+              <span class="compass-label compass-e">E</span>
+              <span class="compass-label compass-w">W</span>
+            </div>
+
+            <!-- Home Button -->
+            <button class="viewcube-home-btn" id="cubeHome" title="Home Iso View">
+              <i class="fa-solid fa-house"></i>
+            </button>
+
+            <!-- 3D ViewCube Faces -->
+            <div class="viewcube-cube" id="viewCube3D">
+              <div class="viewcube-face face-top" data-view="top">Top</div>
+              <div class="viewcube-face face-bottom" data-view="bottom">Bottom</div>
+              <div class="viewcube-face face-front" data-view="front">Front</div>
+              <div class="viewcube-face face-back" data-view="back">Back</div>
+              <div class="viewcube-face face-left" data-view="left">Left</div>
+              <div class="viewcube-face face-right" data-view="right">Right</div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- SKETCHUP DEFAULT TRAY (RIGHT SIDEBAR) -->
+      <aside class="su-default-tray" id="defaultTray">
+        <div class="su-tray-header">
+          <span>Default Tray</span>
+          <i class="fa-solid fa-bars"></i>
+        </div>
+
+        <!-- 1. Entity Info Panel -->
+        <div class="su-panel" id="panelEntityInfo">
+          <div class="su-panel-header" onclick="CADSketchUI.togglePanel('panelEntityInfo')">
+            <span>Entity Info</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+          <div class="su-panel-content">
+            <div class="entity-row">
+              <span class="entity-label">Entity Type:</span>
+              <span class="entity-val" id="infoEntityType">Face (Surface)</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Entity ID:</span>
+              <span class="entity-val" id="infoEntityId">face_1</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Surface Area:</span>
+              <span class="entity-val" id="infoEntityArea">42.50 m²</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Material / Color:</span>
+              <span class="entity-val" id="infoEntityMat">Default White</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Layer:</span>
+              <span class="entity-val">Layer0 (Untagged)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Materials Palette Panel -->
+        <div class="su-panel" id="panelMaterials">
+          <div class="su-panel-header" onclick="CADSketchUI.togglePanel('panelMaterials')">
+            <span>Materials</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+          <div class="su-panel-content">
+            <select class="materials-category-select" id="materialCategorySelect">
+              <option value="all">All Architectural Materials</option>
+              <option value="Colors">Colors & Paints</option>
+              <option value="Wood">Wood & Parquet</option>
+              <option value="Brick & Cladding">Brick & Masonry</option>
+              <option value="Stone & Tile">Stone & Tile</option>
+              <option value="Glass & Mirrors">Glass & Translucent</option>
+              <option value="Metal">Metals</option>
+              <option value="Roofing & Landscaping">Roofing & Landscape</option>
+            </select>
+            <div class="materials-swatch-grid" id="materialSwatchesContainer"></div>
+          </div>
+        </div>
+
+        <!-- 3. Components Library Panel -->
+        <div class="su-panel" id="panelComponents">
+          <div class="su-panel-header" onclick="CADSketchUI.togglePanel('panelComponents')">
+            <span>Components</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+          <div class="su-panel-content">
+            <div class="components-grid">
+              <div class="component-card" id="compDoor">
+                <i class="fa-solid fa-door-open"></i>
+                <span class="comp-name">Modern Door</span>
+              </div>
+              <div class="component-card" id="compWindow">
+                <i class="fa-solid fa-table-cells"></i>
+                <span class="comp-name">Glass Window</span>
+              </div>
+              <div class="component-card" id="compStairs">
+                <i class="fa-solid fa-stairs"></i>
+                <span class="comp-name">Staircase</span>
+              </div>
+              <div class="component-card" id="compKitchen">
+                <i class="fa-solid fa-kitchen-set"></i>
+                <span class="comp-name">Kitchen Counter</span>
+              </div>
+              <div class="component-card" id="compBed">
+                <i class="fa-solid fa-bed"></i>
+                <span class="comp-name">King Bed</span>
+              </div>
+              <div class="component-card" id="compPerson">
+                <i class="fa-solid fa-person"></i>
+                <span class="comp-name">Scale Figure</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Styles Panel -->
+        <div class="su-panel" id="panelStyles">
+          <div class="su-panel-header" onclick="CADSketchUI.togglePanel('panelStyles')">
+            <span>Styles</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+          <div class="su-panel-content">
+            <div class="styles-list">
+              <div class="style-item active" data-style="classic">
+                <i class="fa-solid fa-palette"></i> SketchUp Classic
+              </div>
+              <div class="style-item" data-style="shaded">
+                <i class="fa-solid fa-sun"></i> Shaded with Textures
+              </div>
+              <div class="style-item" data-style="monochrome">
+                <i class="fa-solid fa-mountain"></i> Monochrome White
+              </div>
+              <div class="style-item" data-style="xray">
+                <i class="fa-regular fa-eye"></i> X-Ray Translucent
+              </div>
+              <div class="style-item" data-style="blueprint">
+                <i class="fa-solid fa-compass-drafting"></i> Technical Blueprint
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Model Info & Statistics Panel -->
+        <div class="su-panel" id="panelModelInfo">
+          <div class="su-panel-header" onclick="CADSketchUI.togglePanel('panelModelInfo')">
+            <span>Model Info & Stats</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+          <div class="su-panel-content">
+            <div class="entity-row">
+              <span class="entity-label">Faces Count:</span>
+              <span class="entity-val" id="statFacesCount">0</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Edges Count:</span>
+              <span class="entity-val" id="statEdgesCount">0</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Section Cuts:</span>
+              <span class="entity-val" id="statSectionsCount">0</span>
+            </div>
+            <div class="entity-row">
+              <span class="entity-label">Active Units:</span>
+              <span class="entity-val" id="statUnits">Meters (m)</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+    <!-- 4. BOTTOM STATUS BAR & MEASUREMENTS BOX (VCB) -->
+    <footer class="su-status-bar">
+      <div class="su-status-text" id="statusMessage">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="statusPrompt">Select tool: Click on any face or edge to inspect.</span>
+      </div>
+
+      <div class="su-coords-readout" id="coordsReadout">
+        X: 0.00 &nbsp; Y: 0.00 &nbsp; Z: 0.00
+      </div>
+
+      <div class="su-measurements-box">
+        <label class="su-measurements-label" id="measurementsLabel" for="measurementsInput">Measurements</label>
+        <input type="text" class="su-measurements-input" id="measurementsInput" placeholder="0.00" title="Type distance, radius, or dimensions and press Enter" />
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Local Offline Three.js Script -->
+  <script src="/three.min.js"></script>
+  <!-- CADSketch Core Modeler Engine -->
+  <script src="/cadsketch.js"></script>
+  <!-- CADSketch Complete UI Controller -->
+  <script src="/cadsketch_ui.js"></script>
+</body>
+</html>

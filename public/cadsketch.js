@@ -1203,7 +1203,11 @@
     InferenceEngine,
     CADSketchViewport,
     ToolManager,
-    OBJExporter
+    OBJExporter,
+    SketchUpModel: CADSketchModel,
+    SketchUpViewport: CADSketchViewport
   };
+  window.AadiSketch = window.CADSketch;
+  window.AadiSketchWeb = window.CADSketch;
 
 })(window);
